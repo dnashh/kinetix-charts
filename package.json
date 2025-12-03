@@ -1,0 +1,23 @@
+{
+  "name": "kinetix-charts",
+  "version": "0.0.1",
+  "description": "High-performance, dependency-free charting library",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview",
+    "test": "vitest",
+    "prepare": "husky"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "happy-dom": "^20.0.11",
+    "husky": "^9.1.7",
+    "typescript": "^5.2.2",
+    "vite": "^5.0.0",
+    "vitest": "^1.0.0"
+  },
+  "author": "",
+  "license": "MIT"
+}

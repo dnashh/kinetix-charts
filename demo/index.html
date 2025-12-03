@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Kinetix Charts | High-Performance Visualization</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&family=Inter:wght@400;500;600&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <div class="app-container">
+      <aside class="sidebar">
+        <div class="brand">
+          <div class="logo-icon">K</div>
+          <h1>Kinetix</h1>
+        </div>
+        <nav>
+          <a href="#" class="nav-item active" data-view="dashboard">Dashboard</a>
+          <a href="#" class="nav-item" data-view="playground">Playground</a>
+        </nav>
+      </aside>
+
+      <main class="content">
+        <header class="top-bar">
+          <h2>Dashboard Overview</h2>
+          <div class="actions">
+            <button id="refresh-btn" class="btn-primary">
+              <span class="icon">↻</span> Refresh Data
+            </button>
+          </div>
+        </header>
+
+        <div id="view-dashboard" class="view active">
+          <div class="grid-layout">
+            <div class="card large">
+              <div class="card-header">
+                <h3>Revenue Trend</h3>
+                <span class="badge">Live</span>
+              </div>
+              <div id="chart-line" class="chart-container"></div>
+            </div>
+
+            <div class="card">
+              <div class="card-header">
+                <h3>User Acquisition</h3>
+              </div>
+              <div id="chart-bar" class="chart-container"></div>
+            </div>
+
+            <div class="card">
+              <div class="card-header">
+                <h3>Traffic Sources</h3>
+              </div>
+              <div id="chart-pie" class="chart-container"></div>
+            </div>
+
+            <div class="card wide">
+              <div class="card-header">
+                <h3>Server Load Distribution</h3>
+              </div>
+              <div id="chart-stacked" class="chart-container"></div>
+            </div>
+          </div>
+        </div>
+
+        <div id="view-playground" class="view">
+            <div class="playground-layout">
+                <div class="config-panel">
+                    <h3>Configuration</h3>
+                    <div class="form-group">
+                        <label>Chart Type</label>
+                        <select id="pg-type-select">
+                            <option value="line">Line Chart</option>
+                            <option value="bar">Bar Chart</option>
+                            <option value="stacked">Stacked Bar</option>
+                            <option value="pie">Pie Chart</option>
+                        </select>
+                    </div>
+                    <button id="pg-update" class="btn-secondary">Update Chart</button>
+                </div>
+                <div class="preview-panel">
+                    <div class="card large">
+                        <div class="card-header">
+                            <h3>Preview</h3>
+                        </div>
+                        <div id="chart-playground" class="chart-container"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+      </main>
+    </div>
+    <script type="module" src="main.ts"></script>
+  </body>
+</html>
