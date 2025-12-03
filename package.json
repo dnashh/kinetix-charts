@@ -1,8 +1,21 @@
 {
   "name": "kinetix-charts",
-  "version": "0.0.1",
+  "private": false,
+  "version": "0.0.2",
   "description": "High-performance, dependency-free charting library",
   "type": "module",
+  "main": "./dist/kinetix-charts.umd.cjs",
+  "module": "./dist/kinetix-charts.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/kinetix-charts.js",
+      "require": "./dist/kinetix-charts.umd.cjs"
+    }
+  },
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
@@ -19,5 +32,11 @@
     "vitest": "^1.0.0"
   },
   "author": "",
-  "license": "MIT"
+  "license": "MIT",
+  "keywords": [
+    "charts",
+    "charting-library",
+    "data-visualization",
+    "typescript"
+  ]
 }

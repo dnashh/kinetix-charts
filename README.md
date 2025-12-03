@@ -181,7 +181,7 @@ chart.update({
 
 1. **Clone the repository**
    ```bash
-   git clone https://github.com/yourusername/kinetix-charts.git
+   git clone https://github.com/dna_shh/kinetix-charts.git
    cd kinetix-charts
    ```
 
