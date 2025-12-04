@@ -29,6 +29,9 @@
         <header class="top-bar">
           <h2>Dashboard Overview</h2>
           <div class="actions">
+            <button id="theme-btn" class="btn-secondary" style="margin-right: 10px;">
+              <span class="icon">◑</span> Theme
+            </button>
             <button id="refresh-btn" class="btn-primary">
               <span class="icon">↻</span> Refresh Data
             </button>
@@ -47,7 +50,7 @@
 
             <div class="card">
               <div class="card-header">
-                <h3>User Acquisition</h3>
+                <h3>User Acquisition (Categorical)</h3>
               </div>
               <div id="chart-bar" class="chart-container"></div>
             </div>
@@ -57,6 +60,13 @@
                 <h3>Traffic Sources</h3>
               </div>
               <div id="chart-pie" class="chart-container"></div>
+            </div>
+
+            <div class="card">
+              <div class="card-header">
+                <h3>User Distribution</h3>
+              </div>
+              <div id="chart-scatter" class="chart-container"></div>
             </div>
 
             <div class="card wide">
@@ -77,6 +87,7 @@
                         <select id="pg-type-select">
                             <option value="line">Line Chart</option>
                             <option value="bar">Bar Chart</option>
+                            <option value="scatter">Scatter Chart</option>
                             <option value="stacked">Stacked Bar</option>
                             <option value="pie">Pie Chart</option>
                         </select>

@@ -13,6 +13,15 @@
   --font-body: 'Inter', sans-serif;
 }
 
+body.light-theme {
+  --bg-dark: #f8fafc;
+  --bg-card: #ffffff;
+  --bg-sidebar: #f1f5f9;
+  --text-primary: #0f172a;
+  --text-secondary: #64748b;
+  --border: #e2e8f0;
+}
+
 * {
   box-sizing: border-box;
   margin: 0;

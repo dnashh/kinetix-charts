@@ -9,6 +9,7 @@ High-performance, dependency-free charting library built with TypeScript and HTM
 - 📐 **Responsive**: Automatically adapts to container size.
 - 📉 **Smart Downsampling**: Uses Largest-Triangle-Three-Buckets (LTTB) algorithm for efficient rendering of large time-series.
 - 📊 **Multi-Chart Support**: Line, Bar, Stacked Bar, Pie, and Donut charts.
+- 🏷️ **Legend**: Auto-generated legend with hover interaction.
 - 🖱️ **Interactive**: Built-in Pan, Zoom, and Tooltips.
 - 🎨 **Customizable**: Flexible styling options.
 
@@ -119,10 +120,29 @@ pieSeries.setData([
 chart.addSeries(pieSeries);
 ```
 
+#### Scatter Plot
+
+```javascript
+import { ScatterSeries } from 'kinetix-charts';
+
+const scatterSeries = new ScatterSeries(container, 1);
+scatterSeries.setScales(chart.xScale, chart.yScale);
+scatterSeries.color = "#f59e0b";
+scatterSeries.radius = 5;
+
+scatterSeries.setData([
+  { x: 10, y: 20 },
+  { x: 15, y: 35 },
+  { x: 20, y: 10 },
+]);
+
+chart.addSeries(scatterSeries);
+```
+
 ### 3. Interaction
 
 Interactions are enabled by default:
-- **Pan**: Click and drag to pan the X-axis.
+- **Pan**: Click and drag to pan the X-axis. The Y-axis automatically scales to fit the data in the new view.
 - **Zoom**: Scroll to zoom in/out on the X-axis.
 - **Tooltip**: Hover over data points to see values.
 
@@ -130,16 +150,42 @@ Interactions are enabled by default:
 
 #### Axis Customization
 
+The axis supports persistent lines, text backgrounds, theming, and datetime formatting.
+
 ```javascript
 chart.axisLayer.config = {
+  visible: true,
+  theme: 'dark', // 'light' or 'dark' - adapts text and background colors
+  type: 'datetime', // 'numeric' or 'datetime' - formats labels accordingly
   xTickCount: 5,
   yTickCount: 5,
-  textColor: "#333",
-  font: "14px Arial",
-  xLabelFormat: (val) => `Day ${val}`,
-  yLabelFormat: (val) => `$${val}`
+  // Custom formats override defaults
+  // xLabelFormat: (val) => `Day ${val}`,
 };
 ```
+
+**Features:**
+- **Persistent Lines**: X and Y axis lines are always visible.
+- **Text Background**: Labels have a background to ensure readability.
+- **Auto-Scaling**: Y-axis grows/shrinks based on the visible data range.
+- **Precision**: Numeric labels are formatted to a maximum of 2 decimal places.
+
+#### Legend
+
+A legend is automatically generated based on the series names.
+- **Position**: Defaults to top-right.
+- **Interaction**: Hovering over the legend moves it to the top-left (or vice-versa) to prevent occlusion of data.
+- **Customization**: Provide a `name` in the series config to label it in the legend.
+
+```javascript
+chart.addSeries({
+  type: 'line',
+  data: [...],
+  name: 'Revenue 2024', // Shows in legend
+  color: '#6366f1'
+});
+```
+
 
 ### 5. Configuration API (Declarative)
 

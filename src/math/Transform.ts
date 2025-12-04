@@ -1,7 +1,7 @@
 import { Scale } from "./Scale";
 
 export interface Point {
-  x: number;
+  x: number | string;
   y: number;
 }
 
@@ -24,7 +24,7 @@ export class Transform {
   invert(pixelX: number, pixelY: number): Point {
     return {
       x: this.xScale.invert(pixelX),
-      y: this.yScale.invert(pixelY),
+      y: this.yScale.invert(pixelY) as number, // Y is always number for now
     };
   }
 }

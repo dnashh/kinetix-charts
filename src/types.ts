@@ -15,14 +15,21 @@ export interface ChartConfig {
   yAxis?: AxisConfig;
   /** List of series to render */
   series?: SeriesConfig[];
+  /** Theme of the chart */
+  theme?: "light" | "dark";
 }
 
-export type SeriesConfig = LineSeriesConfig | BarSeriesConfig | PieSeriesConfig;
+export type SeriesConfig =
+  | LineSeriesConfig
+  | BarSeriesConfig
+  | PieSeriesConfig
+  | ScatterSeriesConfig;
 
 export interface BaseSeriesConfig {
   type: string;
   color?: string;
   visible?: boolean;
+  name?: string; // Series name for legend
 }
 
 export interface LineSeriesConfig extends BaseSeriesConfig {
@@ -41,4 +48,10 @@ export interface PieSeriesConfig extends BaseSeriesConfig {
   type: "pie";
   data: PieData[];
   innerRadius?: number;
+}
+
+export interface ScatterSeriesConfig extends BaseSeriesConfig {
+  type: "scatter";
+  data: Point[];
+  radius?: number;
 }

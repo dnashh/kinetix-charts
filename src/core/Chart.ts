@@ -1,11 +1,13 @@
+import { LegendLayer } from "../render/LegendLayer";
 import { SceneGraph } from "./SceneGraph";
-import { LinearScale } from "../math/Scale";
+import { LinearScale, CategoricalScale, Scale } from "../math/Scale";
 import { GridLayer } from "../render/GridLayer";
 import { AxisLayer } from "../render/AxisLayer";
 import { Series } from "../render/Series";
 import { LineSeries } from "../render/LineSeries";
 import { BarSeries } from "../render/BarSeries";
 import { PieSeries } from "../render/PieSeries";
+import { ScatterSeries } from "../render/ScatterSeries";
 import { Point } from "../math/Transform";
 import { InteractionManager } from "./InteractionManager";
 import { ChartConfig, SeriesConfig } from "../types";
@@ -15,8 +17,9 @@ export class Chart {
   sceneGraph: SceneGraph;
   gridLayer: GridLayer;
   axisLayer: AxisLayer;
+  legendLayer: LegendLayer;
   series: Series[] = [];
-  xScale: LinearScale;
+  xScale: Scale;
   yScale: LinearScale;
   interactionManager: InteractionManager;
   tooltip: HTMLElement;
@@ -48,11 +51,15 @@ export class Chart {
     this.gridLayer = new GridLayer(container, 0);
     this.gridLayer.setScales(this.xScale, this.yScale);
     this.gridLayer.visible = false; // Hide grid by default
-    this.sceneGraph.addLayer(this.gridLayer);
 
-    this.axisLayer = new AxisLayer(container, 2);
+    this.axisLayer = new AxisLayer(container, 1);
     this.axisLayer.setScales(this.xScale, this.yScale);
+
+    this.legendLayer = new LegendLayer(container, 100);
+
+    this.sceneGraph.addLayer(this.gridLayer);
     this.sceneGraph.addLayer(this.axisLayer);
+    this.sceneGraph.addLayer(this.legendLayer);
 
     // Interaction
     this.interactionManager = new InteractionManager(this);
@@ -123,11 +130,20 @@ export class Chart {
       yMin = Infinity,
       yMax = -Infinity;
 
+    const stringXValues = new Set<string>();
+    let hasStringX = false;
+
     // Helper to check points
     const checkPoints = (points: Point[]) => {
       points.forEach((p) => {
-        if (p.x < xMin) xMin = p.x;
-        if (p.x > xMax) xMax = p.x;
+        if (typeof p.x === "number") {
+          if (p.x < xMin) xMin = p.x;
+          if (p.x > xMax) xMax = p.x;
+        } else {
+          hasStringX = true;
+          stringXValues.add(String(p.x));
+        }
+
         if (p.y < yMin) yMin = p.y;
         if (p.y > yMax) yMax = p.y;
         // Check y0 for stacked
@@ -140,11 +156,60 @@ export class Chart {
 
     // We need to access the data from config or series
     // Since we just rebuilt series, let's use them
+    // We need to access the data from config or series
+    // Since we just rebuilt series, let's use them
     this.series.forEach((s) => {
       checkPoints(s.data);
     });
 
-    if (xMin !== Infinity) {
+    /*
+    const debugId = 'chart-debug-' + Math.random();
+    let debugEl = document.getElementById('chart-debug');
+    if (!debugEl) {
+        debugEl = document.createElement('div');
+        debugEl.id = 'chart-debug';
+        debugEl.style.position = 'fixed';
+        debugEl.style.bottom = '10px';
+        debugEl.style.right = '10px';
+        debugEl.style.background = 'rgba(0,0,0,0.8)';
+        debugEl.style.color = 'white';
+        debugEl.style.padding = '10px';
+        debugEl.style.zIndex = '9999';
+        document.body.appendChild(debugEl);
+    }
+    debugEl.innerHTML = `
+      hasStringX: ${hasStringX}<br>
+      xMin: ${xMin}<br>
+      Series: ${this.series.length}<br>
+      First Point X: ${this.series[0]?.data[0]?.x} (${typeof this.series[0]?.data[0]?.x})
+    `;
+    */
+
+    // Handle Categorical Scale
+    if (hasStringX) {
+      // Switch to CategoricalScale
+      const domain = Array.from(stringXValues);
+      // Re-initialize xScale as CategoricalScale
+      const range = this.xScale.range;
+      this.xScale = new CategoricalScale(domain, range);
+
+      // Update all series with new scale
+      this.series.forEach((s) => s.setScales(this.xScale, this.yScale));
+      this.gridLayer.setScales(this.xScale, this.yScale);
+      this.axisLayer.setScales(this.xScale, this.yScale);
+    } else {
+      // Ensure LinearScale (if we switched back from categorical, or just init)
+      if (this.xScale instanceof CategoricalScale) {
+        const range = this.xScale.range;
+        this.xScale = new LinearScale([0, 100], range); // Temp domain
+
+        this.series.forEach((s) => s.setScales(this.xScale, this.yScale));
+        this.gridLayer.setScales(this.xScale, this.yScale);
+        this.axisLayer.setScales(this.xScale, this.yScale);
+      }
+    }
+
+    if (xMin !== Infinity || hasStringX) {
       // Add 15% buffer
       const xRange = xMax - xMin;
       const yRange = yMax - yMin;
@@ -178,54 +243,91 @@ export class Chart {
       }
 
       // Update Axis Config
-      // Default to hidden if PieSeries and no config provided
       const defaultAxisVisible = !hasPieSeries;
 
       this.axisLayer.config = {
         ...this.axisLayer.config,
         visible: defaultAxisVisible,
-        ...config.xAxis, // Merge user config
+        theme: config.theme || "light", // Pass theme
+        ...config.xAxis,
       };
-      // Note: AxisLayer currently shares config for X and Y in a single object for simplicity in this implementation
-      // But typically X and Y have separate configs.
-      // Looking at AxisLayer, it has one config object.
-      // Let's assume we merge both or handle them.
-      // For now, let's just respect the visible flag if set in either or default.
 
       if (config.xAxis && config.xAxis.visible !== undefined) {
         this.axisLayer.config.visible = config.xAxis.visible;
       }
-      // If yAxis config has visible, it might override?
-      // Current AxisLayer implementation has one global visible flag for the layer.
-      // Ideally we should have separate X and Y axis rendering.
-      // But based on current AxisLayer.draw(), it checks `this.config.visible`.
-
-      // So if either is hidden, we might want to hide the layer? Or just support one global toggle for now.
-      // The user request is "hide the axes", implying both.
 
       if (config.yAxis && config.yAxis.visible !== undefined) {
-        // If user explicitly sets Y axis visibility, respect it (last one wins for now)
         this.axisLayer.config.visible = config.yAxis.visible;
       }
 
-      if (
-        config.yAxis &&
-        (config.yAxis.min !== undefined || config.yAxis.max !== undefined)
-      ) {
-        this.yScale.domain = [
-          config.yAxis.min !== undefined
-            ? config.yAxis.min
-            : this.maxExtent.y[0],
-          config.yAxis.max !== undefined
-            ? config.yAxis.max
-            : this.maxExtent.y[1],
-        ];
-      } else {
-        this.yScale.domain = [...this.maxExtent.y];
+      // Update Legend
+      this.legendLayer.setTheme(config.theme || "light");
+      this.legendLayer.setSeries(this.series);
+
+      // Force hide for PieSeries if it was implicitly visible
+      if (hasPieSeries) {
+        this.axisLayer.config.visible = false;
       }
+
+      // Initial Y Scale
+      this.updateYScale();
     }
 
     this.sceneGraph.render();
+  }
+
+  updateYScale() {
+    // If categorical, we just use the full dataset for now as we don't support partial view yet
+    if (this.xScale instanceof CategoricalScale) {
+      // Recalculate full Y range
+      let yMin = Infinity;
+      let yMax = -Infinity;
+      this.series.forEach((s) => {
+        s.data.forEach((p) => {
+          if (p.y < yMin) yMin = p.y;
+          if (p.y > yMax) yMax = p.y;
+        });
+      });
+
+      if (yMin !== Infinity) {
+        const yRange = yMax - yMin;
+        const yBuffer =
+          yRange * 0.15 || (yMax === 0 ? 1 : Math.abs(yMax) * 0.1);
+        this.yScale.domain = [yMin - yBuffer, yMax + yBuffer];
+      }
+      return;
+    }
+
+    const [xMin, xMax] = this.xScale.domain;
+    let yMin = Infinity;
+    let yMax = -Infinity;
+
+    // Check all series for data in current X range
+    this.series.forEach((s) => {
+      s.data.forEach((p) => {
+        if (p.x >= xMin && p.x <= xMax) {
+          if (p.y < yMin) yMin = p.y;
+          if (p.y > yMax) yMax = p.y;
+          if ((p as any).y0 !== undefined) {
+            if ((p as any).y0 < yMin) yMin = (p as any).y0;
+            if ((p as any).y0 > yMax) yMax = (p as any).y0;
+          }
+        }
+      });
+    });
+
+    if (yMin === Infinity) {
+      // Fallback to maxExtent if no data in view (shouldn't happen if x is constrained)
+      if (this.maxExtent) {
+        this.yScale.domain = [...this.maxExtent.y];
+      }
+      return;
+    }
+
+    const yRange = yMax - yMin;
+    const yBuffer = yRange * 0.15 || (yMax === 0 ? 1 : Math.abs(yMax) * 0.1);
+
+    this.yScale.domain = [yMin - yBuffer, yMax + yBuffer];
   }
 
   addSeries(seriesOrConfig: Series | SeriesConfig) {
@@ -254,6 +356,13 @@ export class Chart {
             (series as PieSeries).innerRadius = seriesConfig.innerRadius;
           }
           break;
+        case "scatter":
+          series = new ScatterSeries(this.container, 1);
+          (series as ScatterSeries).setData(seriesConfig.data);
+          if (seriesConfig.radius) {
+            (series as ScatterSeries).radius = seriesConfig.radius;
+          }
+          break;
         default:
           console.warn(`Unknown series type: ${(seriesConfig as any).type}`);
           return;
@@ -261,6 +370,10 @@ export class Chart {
 
       if (seriesConfig.color) {
         series.color = seriesConfig.color;
+      }
+
+      if (seriesConfig.name) {
+        series.name = seriesConfig.name;
       }
     }
 
@@ -289,8 +402,10 @@ export class Chart {
 
     const checkPoints = (points: Point[]) => {
       points.forEach((p) => {
-        if (p.x < xMin) xMin = p.x;
-        if (p.x > xMax) xMax = p.x;
+        if (typeof p.x === "number") {
+          if (p.x < xMin) xMin = p.x;
+          if (p.x > xMax) xMax = p.x;
+        }
         if (p.y < yMin) yMin = p.y;
         if (p.y > yMax) yMax = p.y;
         if ((p as any).y0 !== undefined) {
@@ -321,14 +436,32 @@ export class Chart {
       this.yScale.domain = [...this.maxExtent.y];
     }
 
+    // Check if we have any PieSeries
+    const hasPieSeries = this.series.some((s) => s instanceof PieSeries);
+
+    // Force hide for PieSeries if it was implicitly visible
+    if (hasPieSeries) {
+      this.axisLayer.config.visible = false;
+    }
+
+    if (xMin !== Infinity) {
+      // Initial Y Scale
+      this.updateYScale();
+    }
+
     this.sceneGraph.render();
   }
 
-  pan(dx: number, dy: number) {
+  pan(dx: number, _dy: number) {
     if (!this.maxExtent) return;
 
     // X Axis Pan
-    const [xd0, xd1] = this.xScale.domain;
+    if (this.xScale.type === "categorical") {
+      // Categorical pan not implemented yet
+      return;
+    }
+
+    const [xd0, xd1] = this.xScale.domain as [number, number];
     const xRange = xd1 - xd0;
     const xPixelRange = this.xScale.range[1] - this.xScale.range[0];
     const xDomainShift = -(dx / xPixelRange) * xRange;
@@ -351,29 +484,8 @@ export class Chart {
 
     this.xScale.domain = [newXd0, newXd1];
 
-    // Y Axis Pan
-    const [yd0, yd1] = this.yScale.domain;
-    const yRange = yd1 - yd0;
-    const yPixelRange = this.yScale.range[1] - this.yScale.range[0];
-    const yPixelHeight = Math.abs(yPixelRange);
-
-    const yDomainShift = (dy / yPixelHeight) * yRange;
-    let newYd0 = yd0 + yDomainShift;
-    let newYd1 = yd1 + yDomainShift;
-
-    // Strict Clamp Y
-    const [yMax0, yMax1] = this.maxExtent.y;
-
-    if (newYd0 < yMax0) {
-      newYd0 = yMax0;
-      newYd1 = newYd0 + yRange;
-    }
-    if (newYd1 > yMax1) {
-      newYd1 = yMax1;
-      newYd0 = newYd1 - yRange;
-    }
-
-    this.yScale.domain = [newYd0, newYd1];
+    // Auto-scale Y based on new X
+    this.updateYScale();
 
     this.sceneGraph.render();
   }
@@ -381,7 +493,12 @@ export class Chart {
   zoom(factor: number, centerPixel: number) {
     if (!this.maxExtent) return;
 
-    const [d0, d1] = this.xScale.domain;
+    if (this.xScale.type === "categorical") {
+      // Categorical zoom not implemented yet
+      return;
+    }
+
+    const [d0, d1] = this.xScale.domain as [number, number];
     const range = d1 - d0;
     const [xMax0, xMax1] = this.maxExtent.x;
     const maxRange = xMax1 - xMax0;
@@ -394,23 +511,30 @@ export class Chart {
     if (newRange < maxRange * 0.01) newRange = maxRange * 0.01; // Too zoomed in
     if (newRange > maxRange) newRange = maxRange; // Too zoomed out
 
-    const centerDomain = this.xScale.invert(centerPixel);
+    const centerDomain = this.xScale.invert(centerPixel) as number;
     const centerRatio = (centerDomain - d0) / range;
 
     let newD0 = centerDomain - centerRatio * newRange;
     let newD1 = newD0 + newRange;
 
     // Strict Clamp to max extent
-    if (newD0 < xMax0) {
-      newD0 = xMax0;
-      newD1 = newD0 + newRange;
-    }
-    if (newD1 > xMax1) {
-      newD1 = xMax1;
-      newD0 = newD1 - newRange;
+    if (this.xScale.type === "linear" || this.xScale.type === "time") {
+      const [xMax0, xMax1] = this.maxExtent.x;
+      if (newD0 < xMax0) {
+        newD0 = xMax0;
+        newD1 = newD0 + newRange;
+      }
+      if (newD1 > xMax1) {
+        newD1 = xMax1;
+        newD0 = newD1 - newRange;
+      }
+      this.xScale.domain = [newD0, newD1];
+    } else {
+      // For categorical, we don't really support zoom yet in this way, or we need different logic
+      // Just ignore clamp for now or implement index based zoom
     }
 
-    this.xScale.domain = [newD0, newD1];
+    this.updateYScale();
     this.sceneGraph.render();
   }
 
@@ -437,17 +561,24 @@ export class Chart {
         this.tooltip.style.top = `${y + 10}px`;
 
         // Determine formatting based on zoom level
-        const xRange = this.xScale.domain[1] - this.xScale.domain[0];
-        const yRange = this.yScale.domain[1] - this.yScale.domain[0];
+        let xDecimals = 0;
+        if (this.xScale.type === "linear" || this.xScale.type === "time") {
+          const d = this.xScale.domain as [number, number];
+          const xRange = d[1] - d[0];
+          xDecimals = xRange < 10 ? 2 : 0;
+        }
 
-        // If range is small (zoomed in), show decimals. Otherwise whole numbers.
-        // Thresholds are arbitrary, can be tuned.
-        const xDecimals = xRange < 10 ? 2 : 0;
+        const yRange = this.yScale.domain[1] - this.yScale.domain[0];
         const yDecimals = yRange < 10 ? 2 : 0;
 
-        let content = `X: ${dataPoint.x.toFixed(
-          xDecimals
-        )}<br>Y: ${dataPoint.y.toFixed(yDecimals)}`;
+        let content = "";
+        if (typeof dataPoint.x === "string") {
+          content = `X: ${dataPoint.x}<br>Y: ${dataPoint.y.toFixed(2)}`;
+        } else {
+          content = `X: ${dataPoint.x.toFixed(
+            xDecimals
+          )}<br>Y: ${dataPoint.y.toFixed(yDecimals)}`;
+        }
         if ((dataPoint as any).label) {
           content = `Label: ${(dataPoint as any).label}<br>Value: ${
             (dataPoint as any).value

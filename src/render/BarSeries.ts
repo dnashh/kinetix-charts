@@ -19,6 +19,31 @@ export class BarSeries extends Series {
     this.clear();
     this.ctx.fillStyle = this.color;
 
+    // Debug info
+    /*
+    const debugId = 'bar-debug-' + Math.random();
+    let debugEl = document.getElementById('bar-debug');
+    if (!debugEl) {
+        debugEl = document.createElement('div');
+        debugEl.id = 'bar-debug';
+        debugEl.style.position = 'absolute';
+        debugEl.style.top = '0';
+        debugEl.style.left = '0';
+        debugEl.style.background = 'rgba(0,0,0,0.8)';
+        debugEl.style.color = 'white';
+        debugEl.style.padding = '5px';
+        debugEl.style.zIndex = '1000';
+        this.container.appendChild(debugEl);
+    }
+    debugEl.innerText = `Data: ${this.visibleData.length}, Scale: ${this.xScale?.type}, Domain: ${this.xScale?.domain.length}`;
+    */
+
+    // Assuming X is categorical or linear-discrete
+    // We need to know the width of each bar.
+    // If linear scale, we estimate width based on data density or fixed pixel width.
+
+    console.log("BarSeries: draw", this.visibleData.length, this.xScale?.type);
+
     // Assuming X is categorical or linear-discrete
     // We need to know the width of each bar.
     // If linear scale, we estimate width based on data density or fixed pixel width.
@@ -30,9 +55,19 @@ export class BarSeries extends Series {
 
     let minDiff = Infinity;
     if (this.visibleData.length > 1) {
-      for (let i = 1; i < this.visibleData.length; i++) {
-        const diff = this.visibleData[i].x - this.visibleData[i - 1].x;
-        if (diff < minDiff) minDiff = diff;
+      // Check if string X
+      if (typeof this.visibleData[0].x === "string") {
+        // For categorical, the slot width is just range / count
+        // We can't calculate diff of strings.
+        // Let's handle this in the width calculation below.
+        minDiff = 1; // Dummy value, we won't use it for categorical logic if we separate it
+      } else {
+        for (let i = 1; i < this.visibleData.length; i++) {
+          const diff =
+            (this.visibleData[i].x as number) -
+            (this.visibleData[i - 1].x as number);
+          if (diff < minDiff) minDiff = diff;
+        }
       }
     } else {
       minDiff = 1; // Fallback
@@ -42,11 +77,17 @@ export class BarSeries extends Series {
     if (minDiff === Infinity) minDiff = 1;
 
     // Calculate pixel width of this domain difference
-    // We use toPixels(0) and toPixels(minDiff) to get the delta,
-    // but toPixels is absolute. So:
-    const p0 = this.xScale.toPixels(0);
-    const p1 = this.xScale.toPixels(minDiff);
-    const slotWidth = Math.abs(p1 - p0);
+    let slotWidth = 0;
+    if (this.xScale.type === "categorical") {
+      const [r0, r1] = this.xScale.range;
+      const width = Math.abs(r1 - r0);
+      const count = this.xScale.domain.length; // Use domain length for categorical slots
+      slotWidth = width / count;
+    } else {
+      const p0 = this.xScale.toPixels(0);
+      const p1 = this.xScale.toPixels(minDiff);
+      slotWidth = Math.abs(p1 - p0);
+    }
 
     const actualBarWidth = slotWidth * this.barWidth;
 
@@ -81,8 +122,11 @@ export class BarSeries extends Series {
 
       const halfWidth = actualBarWidth / 2;
 
-      // Check X bounds
-      if (point.x >= x - halfWidth && point.x <= x + halfWidth) {
+      // Check X bounds (using pixel coordinates)
+      if (
+        (point.x as number) >= x - halfWidth &&
+        (point.x as number) <= x + halfWidth
+      ) {
         // Check Y bounds (between y and y0)
         const minY = Math.min(y, y0);
         const maxY = Math.max(y, y0);

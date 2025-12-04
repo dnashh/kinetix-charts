@@ -6,6 +6,7 @@ export * from "./render/Series";
 export * from "./render/LineSeries";
 export * from "./render/BarSeries";
 export * from "./render/PieSeries";
+export * from "./render/ScatterSeries";
 export * from "./render/AxisLayer";
 export * from "./render/GridLayer";
 export * from "./math/Scale";

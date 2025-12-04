@@ -8,6 +8,7 @@ export abstract class Series extends Layer {
   data: Point[] = [];
   visibleData: Point[] = [];
   color?: string;
+  name: string = "Series";
 
   setScales(xScale: Scale, yScale: Scale) {
     this.xScale = xScale;

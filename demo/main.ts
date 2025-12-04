@@ -1,4 +1,11 @@
-import { Chart, LineSeries, BarSeries, PieSeries, stack } from "../src/index";
+import {
+  Chart,
+  LineSeries,
+  BarSeries,
+  PieSeries,
+  ScatterSeries,
+  stack,
+} from "../src/index";
 import { ChartConfig } from "../src/types";
 
 // --- Data Generation Helpers ---
@@ -6,6 +13,39 @@ function generateData(count: number, step = 1, min = 10, max = 100) {
   const data = [];
   for (let i = 0; i <= count; i++) {
     data.push({ x: i * step, y: min + Math.random() * (max - min) });
+  }
+  return data;
+}
+
+function generateCategoricalData(count: number) {
+  const data = [];
+  const months = [
+    "Jan",
+    "Feb",
+    "Mar",
+    "Apr",
+    "May",
+    "Jun",
+    "Jul",
+    "Aug",
+    "Sep",
+    "Oct",
+    "Nov",
+    "Dec",
+  ];
+  for (let i = 0; i < count; i++) {
+    data.push({
+      x: months[i % months.length] + (Math.floor(i / 12) || ""),
+      y: 10 + Math.random() * 90,
+    });
+  }
+  return data;
+}
+
+function generateScatterData(count: number) {
+  const data = [];
+  for (let i = 0; i < count; i++) {
+    data.push({ x: Math.random() * 100, y: Math.random() * 100 });
   }
   return data;
 }
@@ -19,6 +59,16 @@ function generatePieData() {
 }
 
 // --- Chart Creation Functions ---
+
+let currentTheme: "light" | "dark" = "dark"; // Default to dark for "premium" look
+const charts: Chart[] = [];
+
+function registerChart(chart: Chart) {
+  charts.push(chart);
+  // Apply current theme
+  chart.update({ theme: currentTheme });
+  return chart;
+}
 
 function initLineChart(containerId: string) {
   const container = document.getElementById(containerId);
@@ -43,7 +93,7 @@ function initLineChart(containerId: string) {
     yAxis: { yTickCount: 5, gridColor: "#334155", textColor: "#94a3b8" },
   });
 
-  return chart;
+  return registerChart(chart);
 }
 
 function initBarChart(containerId: string) {
@@ -57,16 +107,17 @@ function initBarChart(containerId: string) {
   const series = new BarSeries(container, 1);
   series.setScales(chart.xScale, chart.yScale);
   series.color = "#10b981"; // Emerald
-  series.setData(generateData(15, 1));
+  // Use categorical data
+  series.setData(generateCategoricalData(8));
 
   chart.addSeries(series);
 
   chart.update({
-    xAxis: { xTickCount: 15, gridColor: "#334155", textColor: "#94a3b8" },
+    xAxis: { xTickCount: 8, gridColor: "#334155", textColor: "#94a3b8" },
     yAxis: { yTickCount: 5, gridColor: "#334155", textColor: "#94a3b8" },
   });
 
-  return chart;
+  return registerChart(chart);
 }
 
 function initPieChart(containerId: string) {
@@ -82,10 +133,37 @@ function initPieChart(containerId: string) {
 
   chart.addSeries(series);
 
-  // Pie chart automatically hides axes based on our previous fix
-  chart.update({});
+  // Pie chart automatically hides axes based on our previous fix, but explicit is safer for demo
+  chart.update({
+    xAxis: { visible: false },
+    yAxis: { visible: false },
+  });
 
-  return chart;
+  return registerChart(chart);
+}
+
+function initScatterChart(containerId: string) {
+  const container = document.getElementById(containerId);
+  if (!container) return;
+  container.innerHTML = "";
+
+  const chart = new Chart(container);
+  chart.series = [];
+
+  const series = new ScatterSeries(container, 1);
+  series.setScales(chart.xScale, chart.yScale);
+  series.color = "#f59e0b"; // Amber
+  series.radius = 5;
+  series.setData(generateScatterData(50));
+
+  chart.addSeries(series);
+
+  chart.update({
+    xAxis: { xTickCount: 5 },
+    yAxis: { yTickCount: 5 },
+  });
+
+  return registerChart(chart);
 }
 
 function initStackedChart(containerId: string) {
@@ -116,7 +194,7 @@ function initStackedChart(containerId: string) {
     yAxis: { gridColor: "#334155", textColor: "#94a3b8" },
   });
 
-  return chart;
+  return registerChart(chart);
 }
 
 // --- Playground Logic ---
@@ -127,6 +205,7 @@ function initPlayground() {
   if (!container) return;
 
   playgroundChart = new Chart(container);
+  registerChart(playgroundChart);
   updatePlaygroundChart();
 
   // Listeners
@@ -150,6 +229,7 @@ function updatePlaygroundChart() {
     xAxis: { gridColor: "#334155", textColor: "#94a3b8" },
     yAxis: { gridColor: "#334155", textColor: "#94a3b8" },
     series: [],
+    theme: currentTheme,
   };
 
   switch (type) {
@@ -166,8 +246,18 @@ function updatePlaygroundChart() {
       config.series = [
         {
           type: "bar",
-          data: generateData(20, 5),
+          data: generateCategoricalData(12),
           color: "#10b981",
+        },
+      ];
+      break;
+    case "scatter":
+      config.series = [
+        {
+          type: "scatter",
+          data: generateScatterData(100),
+          color: "#f59e0b",
+          radius: 4,
         },
       ];
       break;
@@ -194,6 +284,9 @@ function updatePlaygroundChart() {
           data: generatePieData(),
         },
       ];
+      // Explicitly hide axes for pie chart in playground
+      config.xAxis = { visible: false };
+      config.yAxis = { visible: false };
       break;
   }
 
@@ -232,6 +325,7 @@ function initApp() {
   initLineChart("chart-line");
   initBarChart("chart-bar");
   initPieChart("chart-pie");
+  initScatterChart("chart-scatter");
   initStackedChart("chart-stacked");
 
   initPlayground();
@@ -241,8 +335,20 @@ function initApp() {
     initLineChart("chart-line");
     initBarChart("chart-bar");
     initPieChart("chart-pie");
+    initScatterChart("chart-scatter");
     initStackedChart("chart-stacked");
     updatePlaygroundChart();
+  });
+
+  // Theme Button
+  document.getElementById("theme-btn")?.addEventListener("click", () => {
+    currentTheme = currentTheme === "light" ? "dark" : "light";
+    document.body.classList.toggle("light-theme", currentTheme === "light");
+
+    // Update all charts
+    charts.forEach((chart) => {
+      chart.update({ theme: currentTheme });
+    });
   });
 }
 

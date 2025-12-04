@@ -90,8 +90,8 @@ export class PieSeries extends Series {
     // Hit testing for Pie
     const centerX = this.width / 2;
     const centerY = this.height / 2;
-    const dx = point.x - centerX;
-    const dy = point.y - centerY;
+    const dx = (point.x as number) - centerX;
+    const dy = (point.y as number) - centerY;
     const dist = Math.sqrt(dx * dx + dy * dy);
     const radius = Math.min(centerX, centerY) * 0.8;
 

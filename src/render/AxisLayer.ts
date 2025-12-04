@@ -12,6 +12,8 @@ export interface AxisConfig {
   textColor?: string;
   font?: string;
   visible?: boolean;
+  theme?: "light" | "dark";
+  type?: "numeric" | "datetime";
 }
 
 export class AxisLayer extends Layer {
@@ -23,6 +25,8 @@ export class AxisLayer extends Layer {
     textColor: "#000000",
     font: "12px sans-serif",
     visible: true,
+    theme: "light",
+    type: "numeric",
   };
 
   constructor(container: HTMLElement, zIndex: number, config?: AxisConfig) {
@@ -42,42 +46,104 @@ export class AxisLayer extends Layer {
 
     this.clear();
 
-    this.ctx.fillStyle = this.config.textColor!;
+    const isDark = this.config.theme === "dark";
+    const textColor = this.config.textColor || (isDark ? "#e5e7eb" : "#374151");
+    const lineColor = isDark ? "#4b5563" : "#d1d5db";
+    const bgColor = isDark ? "#1f2937" : "#ffffff";
+
     this.ctx.font = this.config.font!;
+    this.ctx.lineWidth = 1;
+    this.ctx.strokeStyle = lineColor;
+
+    const [xr0, xr1] = this.xScale.range;
+    const [yr0, yr1] = this.yScale.range;
+
+    // Draw Axis Lines
+    this.ctx.beginPath();
+    // X Axis
+    this.ctx.moveTo(xr0, yr0);
+    this.ctx.lineTo(xr1, yr0);
+    // Y Axis
+    this.ctx.moveTo(xr0, yr0);
+    this.ctx.lineTo(xr0, yr1);
+    this.ctx.stroke();
+
+    this.ctx.fillStyle = textColor;
     this.ctx.textAlign = "center";
     this.ctx.textBaseline = "top";
 
     // X Axis Labels
-    const xTicks = this.config.xTickCount!;
-    const [xd0, xd1] = this.xScale.domain;
-    const [xr0, xr1] = this.xScale.range;
+    if (this.xScale.type === "categorical") {
+      const domain = this.xScale.domain as string[];
+      // Draw all labels for categorical if they fit, or skip some
+      // Simple implementation: draw all
+      domain.forEach((label, i) => {
+        const x = this.xScale!.toPixels(i);
+        // Clip
+        if (x < Math.min(xr0, xr1) || x > Math.max(xr0, xr1)) return;
 
-    for (let i = 0; i <= xTicks; i++) {
-      const t = i / xTicks;
-      const val = xd0 + t * (xd1 - xd0);
-      const x = this.xScale.toPixels(val);
+        // Draw background
+        const metrics = this.ctx.measureText(label);
+        const bgPadding = 2;
+        this.ctx.fillStyle = bgColor;
+        // Add padding between axis line and label (e.g. 5px)
+        const yPos = this.height - 25 + 5;
 
-      // Clip to range
-      if (x < Math.min(xr0, xr1) || x > Math.max(xr0, xr1)) continue;
+        this.ctx.fillRect(
+          x - metrics.width / 2 - bgPadding,
+          yPos - bgPadding,
+          metrics.width + bgPadding * 2,
+          14 + bgPadding * 2
+        );
 
-      let label = val.toFixed(1);
-      // Auto-format: max 3 decimals, remove trailing zeros if integer
-      if (!this.config.xLabelFormat) {
-        label = parseFloat(val.toFixed(3)).toString();
-      } else {
-        label = this.config.xLabelFormat(val);
+        this.ctx.fillStyle = textColor;
+        this.ctx.fillText(label, x, yPos);
+      });
+    } else {
+      const xTicks = this.config.xTickCount!;
+      const [xd0, xd1] = this.xScale.domain as [number, number];
+
+      for (let i = 0; i <= xTicks; i++) {
+        const t = i / xTicks;
+        const val = xd0 + t * (xd1 - xd0);
+        const x = this.xScale.toPixels(val);
+
+        // Clip to range
+        if (x < Math.min(xr0, xr1) || x > Math.max(xr0, xr1)) continue;
+
+        let label = "";
+        if (this.config.xLabelFormat) {
+          label = this.config.xLabelFormat(val);
+        } else if (this.config.type === "datetime") {
+          label = new Date(val).toLocaleDateString();
+        } else {
+          label = parseFloat(val.toFixed(2)).toString();
+        }
+
+        // Draw background for text
+        const metrics = this.ctx.measureText(label);
+        const bgPadding = 2;
+        this.ctx.fillStyle = bgColor;
+        // Add padding between axis line and label
+        const yPos = this.height - 25 + 5;
+
+        this.ctx.fillRect(
+          x - metrics.width / 2 - bgPadding,
+          yPos - bgPadding,
+          metrics.width + bgPadding * 2,
+          14 + bgPadding * 2 // Approx height
+        );
+
+        this.ctx.fillStyle = textColor;
+        this.ctx.fillText(label, x, yPos);
       }
-
-      // Draw in bottom margin
-      this.ctx.fillText(label, x, this.height - 25);
     }
 
     // Y Axis Labels
     this.ctx.textAlign = "right";
     this.ctx.textBaseline = "middle";
     const yTicks = this.config.yTickCount!;
-    const [yd0, yd1] = this.yScale.domain;
-    const [yr0, yr1] = this.yScale.range;
+    const [yd0, yd1] = this.yScale.domain as [number, number];
 
     for (let i = 0; i <= yTicks; i++) {
       const t = i / yTicks;
@@ -86,16 +152,32 @@ export class AxisLayer extends Layer {
 
       if (y < Math.min(yr0, yr1) || y > Math.max(yr0, yr1)) continue;
 
-      let label = val.toFixed(1);
-      if (!this.config.yLabelFormat) {
-        label = parseFloat(val.toFixed(3)).toString();
-      } else {
+      let label = "";
+      if (this.config.yLabelFormat) {
         label = this.config.yLabelFormat(val);
+      } else {
+        // Y axis usually numeric even if X is time
+        label = parseFloat(val.toFixed(2)).toString();
       }
 
-      // Draw in left margin
-      // Assuming left padding is around 60, draw at 55
-      this.ctx.fillText(label, 55, y);
+      // Draw background for text
+      const metrics = this.ctx.measureText(label);
+      const bgPadding = 2;
+      this.ctx.fillStyle = bgColor;
+      // Add padding between axis line and label (e.g. 5px)
+      // Axis line is at 60 (left padding), so label should be at 55 - 5 = 50?
+      // Current implementation draws at 55. Let's move it to 50.
+      const xPos = 50;
+
+      this.ctx.fillRect(
+        xPos - metrics.width - bgPadding,
+        y - 6 - bgPadding, // Approx half height offset
+        metrics.width + bgPadding * 2,
+        12 + bgPadding * 2
+      );
+
+      this.ctx.fillStyle = textColor;
+      this.ctx.fillText(label, xPos, y);
     }
   }
 }
