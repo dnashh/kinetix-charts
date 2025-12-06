@@ -226,20 +226,23 @@ export class Chart {
 
       // Set initial domain to this extent (or config provided)
       // If config provided specific axis range, use that, but keep maxExtent for clamping
-      if (
-        config.xAxis &&
-        (config.xAxis.min !== undefined || config.xAxis.max !== undefined)
-      ) {
-        this.xScale.domain = [
-          config.xAxis.min !== undefined
-            ? config.xAxis.min
-            : this.maxExtent.x[0],
-          config.xAxis.max !== undefined
-            ? config.xAxis.max
-            : this.maxExtent.x[1],
-        ];
-      } else {
-        this.xScale.domain = [...this.maxExtent.x];
+      // Skip for categorical scales - they have their own domain
+      if (!(this.xScale instanceof CategoricalScale)) {
+        if (
+          config.xAxis &&
+          (config.xAxis.min !== undefined || config.xAxis.max !== undefined)
+        ) {
+          this.xScale.domain = [
+            config.xAxis.min !== undefined
+              ? config.xAxis.min
+              : this.maxExtent.x[0],
+            config.xAxis.max !== undefined
+              ? config.xAxis.max
+              : this.maxExtent.x[1],
+          ];
+        } else {
+          this.xScale.domain = [...this.maxExtent.x];
+        }
       }
 
       // Update Axis Config
@@ -290,6 +293,12 @@ export class Chart {
       });
 
       if (yMin !== Infinity) {
+        // Include 0 in range for bar charts (so bars have a baseline)
+        const hasBarSeries = this.series.some((s) => s instanceof BarSeries);
+        if (hasBarSeries && yMin > 0) {
+          yMin = 0;
+        }
+
         const yRange = yMax - yMin;
         const yBuffer =
           yRange * 0.15 || (yMax === 0 ? 1 : Math.abs(yMax) * 0.1);
@@ -400,11 +409,17 @@ export class Chart {
       yMin = Infinity,
       yMax = -Infinity;
 
+    const stringXValues = new Set<string>();
+    let hasStringX = false;
+
     const checkPoints = (points: Point[]) => {
       points.forEach((p) => {
         if (typeof p.x === "number") {
           if (p.x < xMin) xMin = p.x;
           if (p.x > xMax) xMax = p.x;
+        } else {
+          hasStringX = true;
+          stringXValues.add(String(p.x));
         }
         if (p.y < yMin) yMin = p.y;
         if (p.y > yMax) yMax = p.y;
@@ -420,7 +435,27 @@ export class Chart {
       checkPoints(s.data);
     });
 
-    if (xMin !== Infinity) {
+    // Handle Categorical Scale - same logic as update()
+    if (hasStringX) {
+      const domain = Array.from(stringXValues);
+      const range = this.xScale.range;
+      this.xScale = new CategoricalScale(domain, range);
+
+      // Update all series with new scale
+      this.series.forEach((s) => s.setScales(this.xScale, this.yScale));
+      this.gridLayer.setScales(this.xScale, this.yScale);
+      this.axisLayer.setScales(this.xScale, this.yScale);
+    } else if (this.xScale instanceof CategoricalScale) {
+      // Switch back to LinearScale if no string X values
+      const range = this.xScale.range;
+      this.xScale = new LinearScale([0, 100], range);
+
+      this.series.forEach((s) => s.setScales(this.xScale, this.yScale));
+      this.gridLayer.setScales(this.xScale, this.yScale);
+      this.axisLayer.setScales(this.xScale, this.yScale);
+    }
+
+    if (xMin !== Infinity || hasStringX) {
       const xRange = xMax - xMin;
       const yRange = yMax - yMin;
       const xBuffer = xRange * 0.15;
@@ -432,7 +467,9 @@ export class Chart {
       };
 
       // Update domains if not locked (simplified logic for now)
-      this.xScale.domain = [...this.maxExtent.x];
+      if (!hasStringX) {
+        this.xScale.domain = [...this.maxExtent.x];
+      }
       this.yScale.domain = [...this.maxExtent.y];
     }
 
@@ -444,7 +481,7 @@ export class Chart {
       this.axisLayer.config.visible = false;
     }
 
-    if (xMin !== Infinity) {
+    if (xMin !== Infinity || hasStringX) {
       // Initial Y Scale
       this.updateYScale();
     }

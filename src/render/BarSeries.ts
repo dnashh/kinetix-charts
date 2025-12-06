@@ -42,8 +42,6 @@ export class BarSeries extends Series {
     // We need to know the width of each bar.
     // If linear scale, we estimate width based on data density or fixed pixel width.
 
-    console.log("BarSeries: draw", this.visibleData.length, this.xScale?.type);
-
     // Assuming X is categorical or linear-discrete
     // We need to know the width of each bar.
     // If linear scale, we estimate width based on data density or fixed pixel width.
@@ -94,12 +92,20 @@ export class BarSeries extends Series {
     for (const p of this.visibleData) {
       const x = this.xScale.toPixels(p.x);
       const y = this.yScale.toPixels(p.y);
-      // Support stacking: use p.y0 if available, else 0
-      const bottomVal = (p as any).y0 || 0;
+
+      // Support stacking: use p.y0 if available
+      // For non-stacked bars, bottom should be at the chart bottom (y scale minimum)
+      let bottomVal: number;
+      if ((p as any).y0 !== undefined) {
+        bottomVal = (p as any).y0;
+      } else {
+        // Use the lower bound of Y domain for bar bottom
+        const yDomain = this.yScale.domain as [number, number];
+        bottomVal = Math.max(0, yDomain[0]); // Use 0 if it's in range, otherwise domain min
+      }
       const y0 = this.yScale.toPixels(bottomVal);
 
-      // Draw rect
-      // Center the bar on x
+      // Draw rect - Center the bar on x
       this.ctx.fillRect(x - actualBarWidth / 2, y, actualBarWidth, y0 - y);
     }
   }

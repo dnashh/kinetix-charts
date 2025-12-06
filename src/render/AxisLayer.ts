@@ -13,7 +13,7 @@ export interface AxisConfig {
   font?: string;
   visible?: boolean;
   theme?: "light" | "dark";
-  type?: "numeric" | "datetime";
+  type?: "numeric" | "datetime" | "categorical";
 }
 
 export class AxisLayer extends Layer {
@@ -156,8 +156,17 @@ export class AxisLayer extends Layer {
       if (this.config.yLabelFormat) {
         label = this.config.yLabelFormat(val);
       } else {
-        // Y axis usually numeric even if X is time
-        label = parseFloat(val.toFixed(2)).toString();
+        // Smart formatting for large numbers
+        const absVal = Math.abs(val);
+        if (absVal >= 1000000) {
+          label = (val / 1000000).toFixed(1).replace(/\.0$/, "") + "M";
+        } else if (absVal >= 1000) {
+          label = (val / 1000).toFixed(1).replace(/\.0$/, "") + "K";
+        } else if (absVal >= 1) {
+          label = val.toFixed(1).replace(/\.0$/, "");
+        } else {
+          label = val.toFixed(2);
+        }
       }
 
       // Draw background for text

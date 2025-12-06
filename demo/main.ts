@@ -1,103 +1,143 @@
+/**
+ * Kinetix Charts Demo
+ * Showcases all chart types and features
+ */
+
 import {
   Chart,
   LineSeries,
   BarSeries,
-  PieSeries,
   ScatterSeries,
+  PieSeries,
   stack,
 } from "../src/index";
-import { ChartConfig } from "../src/types";
+import type { ChartConfig } from "../src/types";
 
-// --- Data Generation Helpers ---
-function generateData(count: number, step = 1, min = 10, max = 100) {
-  const data = [];
-  for (let i = 0; i <= count; i++) {
-    data.push({ x: i * step, y: min + Math.random() * (max - min) });
+// ============================================
+// Data Generators
+// ============================================
+
+function generateLineData(count: number): { x: number; y: number }[] {
+  const data: { x: number; y: number }[] = [];
+  let value = 50;
+
+  for (let i = 0; i < count; i++) {
+    // Random walk with trend
+    value += (Math.random() - 0.48) * 10;
+    value = Math.max(10, Math.min(100, value));
+    data.push({ x: i, y: value });
   }
+
   return data;
 }
 
-function generateCategoricalData(count: number) {
-  const data = [];
-  const months = [
-    "Jan",
-    "Feb",
-    "Mar",
-    "Apr",
-    "May",
-    "Jun",
-    "Jul",
-    "Aug",
-    "Sep",
-    "Oct",
-    "Nov",
-    "Dec",
+function generateCategoricalData(): { x: string; y: number }[] {
+  const prefixes = [
+    "Alpha",
+    "Beta",
+    "Gamma",
+    "Delta",
+    "Sigma",
+    "Omega",
+    "Nova",
+    "Apex",
+    "Core",
+    "Edge",
   ];
-  for (let i = 0; i < count; i++) {
-    data.push({
-      x: months[i % months.length] + (Math.floor(i / 12) || ""),
-      y: 10 + Math.random() * 90,
-    });
-  }
-  return data;
-}
+  const count = 5 + Math.floor(Math.random() * 6); // 5-10 categories
 
-function generateScatterData(count: number) {
-  const data = [];
-  for (let i = 0; i < count; i++) {
-    data.push({ x: Math.random() * 100, y: Math.random() * 100 });
-  }
-  return data;
-}
-
-function generatePieData() {
-  const labels = ["Direct", "Social", "Referral", "Organic"];
-  return labels.map((l) => ({
-    label: l,
-    value: Math.floor(Math.random() * 100) + 10,
+  return prefixes.slice(0, count).map((name) => ({
+    x: name,
+    y: Math.floor(10000 + Math.random() * 40000),
   }));
 }
 
-// --- Chart Creation Functions ---
+function generateScatterData(count: number): { x: number; y: number }[] {
+  const data: { x: number; y: number }[] = [];
 
-let currentTheme: "light" | "dark" = "dark"; // Default to dark for "premium" look
+  for (let i = 0; i < count; i++) {
+    data.push({
+      x: Math.random() * 100,
+      y: Math.random() * 100,
+    });
+  }
+
+  return data;
+}
+
+function generatePieData(): { label: string; value: number; color?: string }[] {
+  return [
+    { label: "Direct", value: 35, color: "#6366f1" },
+    { label: "Organic", value: 28, color: "#22c55e" },
+    { label: "Referral", value: 22, color: "#f59e0b" },
+    { label: "Social", value: 15, color: "#ec4899" },
+  ];
+}
+
+function generateStackedData(): { x: number; y: number }[][] {
+  const series1: { x: number; y: number }[] = [];
+  const series2: { x: number; y: number }[] = [];
+  const series3: { x: number; y: number }[] = [];
+
+  for (let i = 0; i < 10; i++) {
+    series1.push({ x: i * 10, y: 10 + Math.random() * 30 });
+    series2.push({ x: i * 10, y: 10 + Math.random() * 30 });
+    series3.push({ x: i * 10, y: 10 + Math.random() * 30 });
+  }
+
+  return [series1, series2, series3];
+}
+
+function generateLargeDataset(count: number): { x: number; y: number }[] {
+  const data: { x: number; y: number }[] = [];
+  let value = 50;
+
+  for (let i = 0; i < count; i++) {
+    value += (Math.random() - 0.5) * 5;
+    value = Math.max(0, Math.min(100, value));
+    data.push({ x: i, y: value });
+  }
+
+  return data;
+}
+
+// ============================================
+// Chart Registry (for theme updates)
+// ============================================
+
 const charts: Chart[] = [];
+let currentTheme: "dark" | "light" = "dark";
 
-function registerChart(chart: Chart) {
+function registerChart(chart: Chart): Chart {
   charts.push(chart);
-  // Apply current theme
-  chart.update({ theme: currentTheme });
   return chart;
 }
 
-function initLineChart(containerId: string) {
-  const container = document.getElementById(containerId);
+// ============================================
+// Chart Creation Functions
+// ============================================
+
+function createLineChart(): void {
+  const container = document.getElementById("chart-line");
   if (!container) return;
   container.innerHTML = "";
 
   const chart = new Chart(container);
-
-  // Clear default series
   chart.series = [];
 
   const series = new LineSeries(container, 1);
   series.setScales(chart.xScale, chart.yScale);
-  series.color = "#6366f1"; // Indigo
-  series.setData(generateData(50));
+  series.color = "#6366f1";
+  series.name = "Revenue";
+  series.setData(generateLineData(50));
 
   chart.addSeries(series);
-
-  // Configure Axes
-  chart.update({
-    xAxis: { xTickCount: 8, gridColor: "#334155", textColor: "#94a3b8" },
-    yAxis: { yTickCount: 5, gridColor: "#334155", textColor: "#94a3b8" },
-  });
-
-  return registerChart(chart);
+  chart.update({ theme: currentTheme });
+  registerChart(chart);
 }
 
-function initBarChart(containerId: string) {
-  const container = document.getElementById(containerId);
+function createBarChart(): void {
+  const container = document.getElementById("chart-bar");
   if (!container) return;
   container.innerHTML = "";
 
@@ -106,22 +146,37 @@ function initBarChart(containerId: string) {
 
   const series = new BarSeries(container, 1);
   series.setScales(chart.xScale, chart.yScale);
-  series.color = "#10b981"; // Emerald
-  // Use categorical data
-  series.setData(generateCategoricalData(8));
+  series.color = "#22c55e";
+  series.name = "Sales";
+  series.setData(generateCategoricalData());
 
   chart.addSeries(series);
-
-  chart.update({
-    xAxis: { xTickCount: 8, gridColor: "#334155", textColor: "#94a3b8" },
-    yAxis: { yTickCount: 5, gridColor: "#334155", textColor: "#94a3b8" },
-  });
-
-  return registerChart(chart);
+  chart.update({ theme: currentTheme });
+  registerChart(chart);
 }
 
-function initPieChart(containerId: string) {
-  const container = document.getElementById(containerId);
+function createScatterChart(): void {
+  const container = document.getElementById("chart-scatter");
+  if (!container) return;
+  container.innerHTML = "";
+
+  const chart = new Chart(container);
+  chart.series = [];
+
+  const series = new ScatterSeries(container, 1);
+  series.setScales(chart.xScale, chart.yScale);
+  series.color = "#f59e0b";
+  series.radius = 5;
+  series.name = "Data Points";
+  series.setData(generateScatterData(60));
+
+  chart.addSeries(series);
+  chart.update({ theme: currentTheme });
+  registerChart(chart);
+}
+
+function createPieChart(): void {
+  const container = document.getElementById("chart-pie");
   if (!container) return;
   container.innerHTML = "";
 
@@ -132,151 +187,118 @@ function initPieChart(containerId: string) {
   series.setData(generatePieData());
 
   chart.addSeries(series);
-
-  // Pie chart automatically hides axes based on our previous fix, but explicit is safer for demo
   chart.update({
+    theme: currentTheme,
     xAxis: { visible: false },
     yAxis: { visible: false },
   });
-
-  return registerChart(chart);
+  registerChart(chart);
 }
 
-function initScatterChart(containerId: string) {
-  const container = document.getElementById(containerId);
+function createStackedChart(): void {
+  const container = document.getElementById("chart-stacked");
   if (!container) return;
   container.innerHTML = "";
 
   const chart = new Chart(container);
   chart.series = [];
 
-  const series = new ScatterSeries(container, 1);
+  const rawData = generateStackedData();
+  const stackedData = stack(rawData);
+  const colors = ["#6366f1", "#22c55e", "#f59e0b"];
+  const names = ["Product A", "Product B", "Product C"];
+
+  stackedData.forEach((data, i) => {
+    const series = new BarSeries(container, 1);
+    series.setScales(chart.xScale, chart.yScale);
+    series.color = colors[i];
+    series.name = names[i];
+    series.setData(data);
+    chart.addSeries(series);
+  });
+
+  chart.update({ theme: currentTheme });
+  registerChart(chart);
+}
+
+function createLargeDatasetChart(): void {
+  const container = document.getElementById("chart-large");
+  if (!container) return;
+  container.innerHTML = "";
+
+  const chart = new Chart(container);
+  chart.series = [];
+
+  const series = new LineSeries(container, 1);
   series.setScales(chart.xScale, chart.yScale);
-  series.color = "#f59e0b"; // Amber
-  series.radius = 5;
-  series.setData(generateScatterData(50));
+  series.color = "#ec4899";
+  series.name = "Time Series";
+  series.setData(generateLargeDataset(10000));
 
   chart.addSeries(series);
-
-  chart.update({
-    xAxis: { xTickCount: 5 },
-    yAxis: { yTickCount: 5 },
-  });
-
-  return registerChart(chart);
+  chart.update({ theme: currentTheme });
+  registerChart(chart);
 }
 
-function initStackedChart(containerId: string) {
-  const container = document.getElementById(containerId);
-  if (!container) return;
+// ============================================
+// Interactive Preview
+// ============================================
+
+let previewChart: Chart | null = null;
+
+function updatePreviewChart(): void {
+  const container = document.getElementById("chart-preview");
+  const typeSelect = document.getElementById("chart-type") as HTMLSelectElement;
+  const pointsInput = document.getElementById(
+    "data-points"
+  ) as HTMLInputElement;
+
+  if (!container || !typeSelect || !pointsInput) return;
   container.innerHTML = "";
 
-  const chart = new Chart(container);
-  chart.series = [];
-
-  const raw1 = generateData(10, 10, 0, 50);
-  const raw2 = generateData(10, 10, 0, 50);
-  const raw3 = generateData(10, 10, 0, 50);
-
-  const stacked = stack([raw1, raw2, raw3]);
-  const colors = ["#3b82f6", "#8b5cf6", "#ec4899"];
-
-  stacked.forEach((data, i) => {
-    const s = new BarSeries(container, 1);
-    s.setScales(chart.xScale, chart.yScale);
-    s.color = colors[i];
-    s.setData(data);
-    chart.addSeries(s);
-  });
-
-  chart.update({
-    xAxis: { gridColor: "#334155", textColor: "#94a3b8" },
-    yAxis: { gridColor: "#334155", textColor: "#94a3b8" },
-  });
-
-  return registerChart(chart);
-}
-
-// --- Playground Logic ---
-let playgroundChart: Chart | null = null;
-
-function initPlayground() {
-  const container = document.getElementById("chart-playground");
-  if (!container) return;
-
-  playgroundChart = new Chart(container);
-  registerChart(playgroundChart);
-  updatePlaygroundChart();
-
-  // Listeners
-  document
-    .getElementById("pg-type-select")
-    ?.addEventListener("change", updatePlaygroundChart);
-  document
-    .getElementById("pg-update")
-    ?.addEventListener("click", updatePlaygroundChart);
-}
-
-function updatePlaygroundChart() {
-  if (!playgroundChart) return;
-
-  const typeSelect = document.getElementById(
-    "pg-type-select"
-  ) as HTMLSelectElement;
-  const type = typeSelect.value;
+  const chartType = typeSelect.value;
+  const dataPoints = parseInt(pointsInput.value, 10);
 
   const config: ChartConfig = {
-    xAxis: { gridColor: "#334155", textColor: "#94a3b8" },
-    yAxis: { gridColor: "#334155", textColor: "#94a3b8" },
-    series: [],
     theme: currentTheme,
+    series: [],
   };
 
-  switch (type) {
+  switch (chartType) {
     case "line":
       config.series = [
         {
           type: "line",
-          data: generateData(100),
+          data: generateLineData(dataPoints),
           color: "#6366f1",
+          name: "Line Series",
         },
       ];
       break;
+
     case "bar":
       config.series = [
         {
           type: "bar",
-          data: generateCategoricalData(12),
-          color: "#10b981",
+          data: generateCategoricalData(),
+          color: "#22c55e",
+          name: "Bar Series",
         },
       ];
       break;
+
     case "scatter":
       config.series = [
         {
           type: "scatter",
-          data: generateScatterData(100),
+          data: generateScatterData(dataPoints),
           color: "#f59e0b",
-          radius: 4,
+          radius: 5,
+          name: "Scatter Series",
         },
       ];
       break;
-    case "stacked":
-      config.series = [
-        {
-          type: "bar",
-          data: generateData(10, 10),
-          stacked: true,
-          color: "#3b82f6",
-        },
-        {
-          type: "bar",
-          data: generateData(10, 10),
-          stacked: true,
-          color: "#ef4444",
-        },
-      ];
-      break;
+
     case "pie":
       config.series = [
         {
@@ -284,73 +306,77 @@ function updatePlaygroundChart() {
           data: generatePieData(),
         },
       ];
-      // Explicitly hide axes for pie chart in playground
       config.xAxis = { visible: false };
       config.yAxis = { visible: false };
       break;
   }
 
-  playgroundChart.update(config);
+  previewChart = new Chart(container, config);
+  registerChart(previewChart);
 }
 
-// --- App Initialization ---
+// ============================================
+// Theme Toggle
+// ============================================
 
-function initApp() {
-  // Navigation
-  const navItems = document.querySelectorAll(".nav-item");
-  const views = document.querySelectorAll(".view");
+function toggleTheme(): void {
+  currentTheme = currentTheme === "dark" ? "light" : "dark";
+  document.body.classList.toggle("light-theme", currentTheme === "light");
 
-  navItems.forEach((item) => {
-    item.addEventListener("click", (e) => {
-      e.preventDefault();
-      const target = (e.target as HTMLElement).closest(".nav-item");
-      if (!target) return;
+  // Update all charts
+  charts.forEach((chart) => {
+    chart.update({ theme: currentTheme });
+  });
+}
 
-      const viewId = target.getAttribute("data-view");
+// ============================================
+// Event Listeners & Initialization
+// ============================================
 
-      // Update Nav
-      navItems.forEach((n) => n.classList.remove("active"));
-      target.classList.add("active");
+function initEventListeners(): void {
+  // Theme toggle
+  document
+    .getElementById("theme-toggle")
+    ?.addEventListener("click", toggleTheme);
 
-      // Update View
-      views.forEach((v) => v.classList.remove("active"));
-      document.getElementById(`view-${viewId}`)?.classList.add("active");
+  // Interactive controls
+  document
+    .getElementById("generate-btn")
+    ?.addEventListener("click", updatePreviewChart);
+  document
+    .getElementById("chart-type")
+    ?.addEventListener("change", updatePreviewChart);
 
-      // Trigger resize if needed (charts might need resize when becoming visible)
-      window.dispatchEvent(new Event("resize"));
+  // Data points slider
+  const pointsInput = document.getElementById(
+    "data-points"
+  ) as HTMLInputElement;
+  const pointsValue = document.getElementById("data-points-value");
+
+  if (pointsInput && pointsValue) {
+    pointsInput.addEventListener("input", () => {
+      pointsValue.textContent = pointsInput.value;
     });
-  });
+  }
+}
 
-  // Init Charts
-  initLineChart("chart-line");
-  initBarChart("chart-bar");
-  initPieChart("chart-pie");
-  initScatterChart("chart-scatter");
-  initStackedChart("chart-stacked");
+function init(): void {
+  // Create all demo charts
+  createLineChart();
+  createBarChart();
+  createScatterChart();
+  createPieChart();
+  createStackedChart();
+  createLargeDatasetChart();
 
-  initPlayground();
+  // Initialize preview
+  updatePreviewChart();
 
-  // Refresh Button
-  document.getElementById("refresh-btn")?.addEventListener("click", () => {
-    initLineChart("chart-line");
-    initBarChart("chart-bar");
-    initPieChart("chart-pie");
-    initScatterChart("chart-scatter");
-    initStackedChart("chart-stacked");
-    updatePlaygroundChart();
-  });
+  // Setup event listeners
+  initEventListeners();
 
-  // Theme Button
-  document.getElementById("theme-btn")?.addEventListener("click", () => {
-    currentTheme = currentTheme === "light" ? "dark" : "light";
-    document.body.classList.toggle("light-theme", currentTheme === "light");
-
-    // Update all charts
-    charts.forEach((chart) => {
-      chart.update({ theme: currentTheme });
-    });
-  });
+  console.log("🚀 Kinetix Charts Demo loaded");
 }
 
 // Start
-initApp();
+init();
