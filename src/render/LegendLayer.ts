@@ -70,7 +70,16 @@ export class LegendLayer extends Layer {
   }
 
   setSeries(series: Series[]) {
-    this.series = series;
+    // Deduplicate series by name to prevent repeated legend entries
+    const seen = new Set<string>();
+    this.series = series.filter((s) => {
+      const key = s.name || s.color || "unnamed";
+      if (seen.has(key)) {
+        return false;
+      }
+      seen.add(key);
+      return true;
+    });
   }
 
   draw() {

@@ -22,7 +22,7 @@ export class AxisLayer extends Layer {
   config: AxisConfig = {
     xTickCount: 10,
     yTickCount: 10,
-    textColor: "#000000",
+    // Note: textColor intentionally omitted to allow theme-based colors in draw()
     font: "12px sans-serif",
     visible: true,
     theme: "light",
@@ -47,9 +47,12 @@ export class AxisLayer extends Layer {
     this.clear();
 
     const isDark = this.config.theme === "dark";
-    const textColor = this.config.textColor || (isDark ? "#e5e7eb" : "#374151");
-    const lineColor = isDark ? "#4b5563" : "#d1d5db";
-    const bgColor = isDark ? "#1f2937" : "#ffffff";
+    // Improved contrast colors for better readability
+    const textColor = this.config.textColor || (isDark ? "#f9fafb" : "#111827");
+    const lineColor = isDark ? "#6b7280" : "#9ca3af";
+    const bgColor = isDark
+      ? "rgba(17, 24, 39, 0.95)"
+      : "rgba(255, 255, 255, 0.95)";
 
     this.ctx.font = this.config.font!;
     this.ctx.lineWidth = 1;

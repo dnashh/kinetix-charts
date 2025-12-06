@@ -343,6 +343,32 @@ chart.update({
 });
 ```
 
+### Delta Mode (Bar Charts)
+
+When your data has minor variations between values (e.g., `[1000, 1002, 1001, 1003]`), the differences are hard to see because bars all look nearly the same height. **Delta Mode** solves this by showing bar heights relative to the minimum value.
+
+```typescript
+// Enable delta mode for a bar series
+const chart = new Chart(container, {
+  series: [{
+    type: 'bar',
+    name: 'Sales',
+    data: [
+      { x: 'Mon', y: 1000 },
+      { x: 'Tue', y: 1002 },
+      { x: 'Wed', y: 1001 },
+      { x: 'Thu', y: 1005 }
+    ],
+    deltaMode: true  // Toggle to enable relative height display
+  }]
+});
+```
+
+**Without deltaMode:** All bars look nearly identical height (all ~1000).  
+**With deltaMode:** Bar height differences are magnified, making variations clearly visible.
+
+> **Note:** The actual Y values are still displayed in tooltips. Delta mode only affects the visual representation.
+
 ---
 
 ## 🎨 Theming

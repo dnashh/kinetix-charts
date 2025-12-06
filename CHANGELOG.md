@@ -5,6 +5,23 @@ All notable changes to Kinetix Charts will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.0] - 2024-12-06
+
+### Added
+- **Delta Mode for Bar Charts** - New `deltaMode: true` option to visualize small variations between values more prominently
+- **Multi-series Tooltips** - Tooltips now show data from all series at hover position with color indicators
+- **Tooltip Formatting** - Tooltips use axis label formatters (`xLabelFormat`/`yLabelFormat`) for consistent formatting
+- **Datetime Tooltip Support** - Properly formatted datetime values in tooltips when axis type is `datetime`
+
+### Fixed
+- **Dark Mode Text Contrast** - Axis labels now properly use light text (`#f9fafb`) in dark mode
+- **Legend Deduplication** - Prevents duplicate series entries in legend
+- **Axis Layer Z-Index** - Axis layer now renders above chart series (z-index 50)
+
+### Changed
+- Improved axis text contrast colors for better readability in both themes
+- Axis label backgrounds now semi-transparent (0.95 opacity) for better layering
+
 ## [0.1.0] - 2024-12-06
 
 ### Added

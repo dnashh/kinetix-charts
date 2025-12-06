@@ -4,6 +4,8 @@ import { Point } from "../math/Transform";
 export class BarSeries extends Series {
   color: string = "#3b82f6"; // Blue-500
   barWidth: number = 0.8; // 0 to 1 (relative to category width)
+  /** Enable delta mode - show bar heights relative to minimum value for better visualization of small variations */
+  deltaMode: boolean = false;
 
   updateVisibleData() {
     // For bars, we usually don't downsample the same way as lines
@@ -19,46 +21,11 @@ export class BarSeries extends Series {
     this.clear();
     this.ctx.fillStyle = this.color;
 
-    // Debug info
-    /*
-    const debugId = 'bar-debug-' + Math.random();
-    let debugEl = document.getElementById('bar-debug');
-    if (!debugEl) {
-        debugEl = document.createElement('div');
-        debugEl.id = 'bar-debug';
-        debugEl.style.position = 'absolute';
-        debugEl.style.top = '0';
-        debugEl.style.left = '0';
-        debugEl.style.background = 'rgba(0,0,0,0.8)';
-        debugEl.style.color = 'white';
-        debugEl.style.padding = '5px';
-        debugEl.style.zIndex = '1000';
-        this.container.appendChild(debugEl);
-    }
-    debugEl.innerText = `Data: ${this.visibleData.length}, Scale: ${this.xScale?.type}, Domain: ${this.xScale?.domain.length}`;
-    */
-
-    // Assuming X is categorical or linear-discrete
-    // We need to know the width of each bar.
-    // If linear scale, we estimate width based on data density or fixed pixel width.
-
-    // Assuming X is categorical or linear-discrete
-    // We need to know the width of each bar.
-    // If linear scale, we estimate width based on data density or fixed pixel width.
-
     // Calculate bar width based on domain
-    // We need to know the domain width of one "slot".
-    // Assuming uniform distribution for now, or just use a fixed domain width if known.
-    // If we assume data is sorted, we can check min diff.
-
     let minDiff = Infinity;
     if (this.visibleData.length > 1) {
-      // Check if string X
       if (typeof this.visibleData[0].x === "string") {
-        // For categorical, the slot width is just range / count
-        // We can't calculate diff of strings.
-        // Let's handle this in the width calculation below.
-        minDiff = 1; // Dummy value, we won't use it for categorical logic if we separate it
+        minDiff = 1;
       } else {
         for (let i = 1; i < this.visibleData.length; i++) {
           const diff =
@@ -68,18 +35,16 @@ export class BarSeries extends Series {
         }
       }
     } else {
-      minDiff = 1; // Fallback
+      minDiff = 1;
     }
 
-    // If minDiff is still Infinity (e.g. 0 or 1 point), use a default
     if (minDiff === Infinity) minDiff = 1;
 
-    // Calculate pixel width of this domain difference
     let slotWidth = 0;
     if (this.xScale.type === "categorical") {
       const [r0, r1] = this.xScale.range;
       const width = Math.abs(r1 - r0);
-      const count = this.xScale.domain.length; // Use domain length for categorical slots
+      const count = this.xScale.domain.length;
       slotWidth = width / count;
     } else {
       const p0 = this.xScale.toPixels(0);
@@ -89,19 +54,32 @@ export class BarSeries extends Series {
 
     const actualBarWidth = slotWidth * this.barWidth;
 
+    // Calculate minY for delta mode
+    let deltaMinY = Infinity;
+    if (this.deltaMode) {
+      for (const p of this.visibleData) {
+        if (p.y < deltaMinY) deltaMinY = p.y;
+      }
+      // Add small buffer below minimum for visual clarity
+      const yRange = Math.max(...this.visibleData.map((p) => p.y)) - deltaMinY;
+      deltaMinY = deltaMinY - yRange * 0.1;
+    }
+
     for (const p of this.visibleData) {
       const x = this.xScale.toPixels(p.x);
       const y = this.yScale.toPixels(p.y);
 
       // Support stacking: use p.y0 if available
-      // For non-stacked bars, bottom should be at the chart bottom (y scale minimum)
       let bottomVal: number;
       if ((p as any).y0 !== undefined) {
         bottomVal = (p as any).y0;
+      } else if (this.deltaMode && deltaMinY !== Infinity) {
+        // In delta mode, use the calculated minimum as baseline
+        bottomVal = deltaMinY;
       } else {
         // Use the lower bound of Y domain for bar bottom
         const yDomain = this.yScale.domain as [number, number];
-        bottomVal = Math.max(0, yDomain[0]); // Use 0 if it's in range, otherwise domain min
+        bottomVal = Math.max(0, yDomain[0]);
       }
       const y0 = this.yScale.toPixels(bottomVal);
 

@@ -52,7 +52,7 @@ export class Chart {
     this.gridLayer.setScales(this.xScale, this.yScale);
     this.gridLayer.visible = false; // Hide grid by default
 
-    this.axisLayer = new AxisLayer(container, 1);
+    this.axisLayer = new AxisLayer(container, 50); // Higher z-index to render above series
     this.axisLayer.setScales(this.xScale, this.yScale);
 
     this.legendLayer = new LegendLayer(container, 100);
@@ -357,6 +357,9 @@ export class Chart {
           if (seriesConfig.barWidth) {
             (series as BarSeries).barWidth = seriesConfig.barWidth;
           }
+          if (seriesConfig.deltaMode) {
+            (series as BarSeries).deltaMode = seriesConfig.deltaMode;
+          }
           break;
         case "pie":
           series = new PieSeries(this.container, 1);
@@ -587,49 +590,87 @@ export class Chart {
       return;
     }
 
-    let found = false;
-    // Iterate in reverse order (top to bottom)
-    for (let i = this.series.length - 1; i >= 0; i--) {
-      const series = this.series[i];
+    // Collect data points from ALL series at this X position
+    const matchedData: { series: Series; point: Point }[] = [];
+
+    for (const series of this.series) {
       const dataPoint = series.getDataAt({ x, y });
       if (dataPoint) {
-        this.tooltip.style.display = "block";
-        this.tooltip.style.left = `${x + 10}px`;
-        this.tooltip.style.top = `${y + 10}px`;
-
-        // Determine formatting based on zoom level
-        let xDecimals = 0;
-        if (this.xScale.type === "linear" || this.xScale.type === "time") {
-          const d = this.xScale.domain as [number, number];
-          const xRange = d[1] - d[0];
-          xDecimals = xRange < 10 ? 2 : 0;
-        }
-
-        const yRange = this.yScale.domain[1] - this.yScale.domain[0];
-        const yDecimals = yRange < 10 ? 2 : 0;
-
-        let content = "";
-        if (typeof dataPoint.x === "string") {
-          content = `X: ${dataPoint.x}<br>Y: ${dataPoint.y.toFixed(2)}`;
-        } else {
-          content = `X: ${dataPoint.x.toFixed(
-            xDecimals
-          )}<br>Y: ${dataPoint.y.toFixed(yDecimals)}`;
-        }
-        if ((dataPoint as any).label) {
-          content = `Label: ${(dataPoint as any).label}<br>Value: ${
-            (dataPoint as any).value
-          }`;
-        }
-
-        this.tooltip.innerHTML = content;
-        found = true;
-        break; // Show first found (topmost)
+        matchedData.push({ series, point: dataPoint });
       }
     }
 
-    if (!found) {
+    if (matchedData.length === 0) {
       this.tooltip.style.display = "none";
+      return;
     }
+
+    // Helper to format X value
+    const formatX = (val: number | string): string => {
+      if (typeof val === "string") {
+        return val;
+      }
+      // Use custom formatter if available
+      if (this.axisLayer.config.xLabelFormat) {
+        return this.axisLayer.config.xLabelFormat(val);
+      }
+      // Use datetime formatting if axis type is datetime
+      if (this.axisLayer.config.type === "datetime") {
+        return new Date(val).toLocaleString();
+      }
+      // Default numeric formatting
+      const d = this.xScale.domain as [number, number];
+      const xRange = d[1] - d[0];
+      const xDecimals = xRange < 10 ? 2 : 0;
+      return val.toFixed(xDecimals);
+    };
+
+    // Helper to format Y value
+    const formatY = (val: number): string => {
+      // Use custom formatter if available
+      if (this.axisLayer.config.yLabelFormat) {
+        return this.axisLayer.config.yLabelFormat(val);
+      }
+      // Smart formatting for large numbers (same as axis labels)
+      const absVal = Math.abs(val);
+      if (absVal >= 1000000) {
+        return (val / 1000000).toFixed(1).replace(/\.0$/, "") + "M";
+      } else if (absVal >= 1000) {
+        return (val / 1000).toFixed(1).replace(/\.0$/, "") + "K";
+      } else if (absVal >= 1) {
+        return val.toFixed(1).replace(/\.0$/, "");
+      } else {
+        return val.toFixed(2);
+      }
+    };
+
+    // Build tooltip content
+    let content = "";
+    const firstPoint = matchedData[0].point;
+
+    // Handle pie chart special case
+    if ((firstPoint as any).label !== undefined) {
+      content = `Label: ${(firstPoint as any).label}<br>Value: ${formatY(
+        (firstPoint as any).value
+      )}`;
+    } else {
+      // Show X value once at the top
+      content = `<div style="margin-bottom: 4px; border-bottom: 1px solid rgba(255,255,255,0.3); padding-bottom: 4px;"><strong>X:</strong> ${formatX(
+        firstPoint.x
+      )}</div>`;
+
+      // Show each series with color indicator
+      matchedData.forEach(({ series, point }) => {
+        const colorBox = `<span style="display: inline-block; width: 10px; height: 10px; background: ${series.color}; margin-right: 6px; border-radius: 2px;"></span>`;
+        content += `<div style="margin: 2px 0;">${colorBox}<strong>${
+          series.name || "Series"
+        }:</strong> ${formatY(point.y)}</div>`;
+      });
+    }
+
+    this.tooltip.innerHTML = content;
+    this.tooltip.style.display = "block";
+    this.tooltip.style.left = `${x + 10}px`;
+    this.tooltip.style.top = `${y + 10}px`;
   }
 }

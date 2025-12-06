@@ -1,7 +1,7 @@
 {
   "name": "kinetix-charts",
   "private": false,
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "High-performance, dependency-free charting library",
   "type": "module",
   "main": "./dist/kinetix-charts.umd.cjs",
@@ -18,7 +18,7 @@
   ],
   "scripts": {
     "dev": "vite",
-    "build": "tsc && vite build",
+    "build": "vitest run && tsc && vite build",
     "preview": "vite preview",
     "test": "vitest",
     "prepare": "husky"
