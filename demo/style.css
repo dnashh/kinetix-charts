@@ -258,6 +258,7 @@ body.light-theme .header {
 
 .chart-container {
   height: 280px;
+  min-height: 200px;
   position: relative;
   border-radius: var(--radius-sm);
   overflow: hidden;

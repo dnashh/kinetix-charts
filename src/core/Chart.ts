@@ -24,6 +24,11 @@ export class Chart {
   interactionManager: InteractionManager;
   tooltip: HTMLElement;
 
+  /** Start Y axis from zero when all values are positive (default: true) */
+  startFromZero: boolean = true;
+  /** Start X axis from zero when all values are positive (default: false) */
+  startXFromZero: boolean = false;
+
   padding = { top: 20, right: 20, bottom: 40, left: 60 };
 
   constructor(container: HTMLElement, config?: ChartConfig) {
@@ -69,31 +74,21 @@ export class Chart {
     this.tooltip.style.position = "absolute";
     this.tooltip.style.display = "none";
     this.tooltip.style.pointerEvents = "none";
-    this.tooltip.style.backgroundColor = "rgba(0, 0, 0, 0.8)";
+    this.tooltip.style.backgroundColor = "rgba(0, 0, 0, 0.9)";
     this.tooltip.style.color = "white";
-    this.tooltip.style.padding = "8px";
-    this.tooltip.style.borderRadius = "4px";
+    this.tooltip.style.padding = "8px 12px";
+    this.tooltip.style.borderRadius = "6px";
     this.tooltip.style.fontSize = "12px";
-    this.tooltip.style.zIndex = "100";
+    this.tooltip.style.zIndex = "1000";
+    this.tooltip.style.whiteSpace = "nowrap";
+    this.tooltip.style.boxShadow = "0 4px 12px rgba(0,0,0,0.3)";
     this.container.appendChild(this.tooltip);
 
     if (config) {
       this.update(config);
-    } else {
-      // Default Series (for backward compatibility/demo)
-      const lineSeries = new LineSeries(container, 1);
-      lineSeries.setScales(this.xScale, this.yScale);
-
-      // Generate random test data
-      const data: Point[] = [];
-      for (let i = 0; i <= 100; i++) {
-        data.push({ x: i, y: 20 + Math.random() * 60 });
-      }
-      lineSeries.setData(data);
-
-      // Initial render
-      this.sceneGraph.render();
     }
+    // No default series - just render empty chart
+    this.sceneGraph.render();
   }
 
   colors: string[] = [
@@ -133,12 +128,25 @@ export class Chart {
     const stringXValues = new Set<string>();
     let hasStringX = false;
 
-    // Helper to check points
+    // Helper to check points - also tries to detect if string X can be numeric
     const checkPoints = (points: Point[]) => {
       points.forEach((p) => {
-        if (typeof p.x === "number") {
-          if (p.x < xMin) xMin = p.x;
-          if (p.x > xMax) xMax = p.x;
+        let xVal = p.x;
+
+        // Try to detect numeric strings (e.g. "123", "45.6")
+        if (typeof xVal === "string") {
+          const parsed = parseFloat(xVal);
+          if (!isNaN(parsed) && isFinite(parsed)) {
+            // This looks like a number, treat it as numeric
+            xVal = parsed;
+            // Also update the point for consistent rendering
+            (p as any).x = parsed;
+          }
+        }
+
+        if (typeof xVal === "number") {
+          if (xVal < xMin) xMin = xVal;
+          if (xVal > xMax) xMax = xVal;
         } else {
           hasStringX = true;
           stringXValues.add(String(p.x));
@@ -210,6 +218,11 @@ export class Chart {
     }
 
     if (xMin !== Infinity || hasStringX) {
+      // Apply startXFromZero if enabled and all X values are positive
+      if (this.startXFromZero && xMin > 0 && !hasStringX) {
+        xMin = 0;
+      }
+
       // Add 15% buffer
       const xRange = xMax - xMin;
       const yRange = yMax - yMin;
@@ -217,7 +230,7 @@ export class Chart {
       const yBuffer = yRange * 0.15;
 
       this.maxExtent = {
-        x: [xMin - xBuffer, xMax + xBuffer],
+        x: [xMin, xMax + xBuffer],
         y: [yMin - yBuffer, yMax + yBuffer],
       };
 
@@ -293,16 +306,20 @@ export class Chart {
       });
 
       if (yMin !== Infinity) {
-        // Include 0 in range for bar charts (so bars have a baseline)
-        const hasBarSeries = this.series.some((s) => s instanceof BarSeries);
-        if (hasBarSeries && yMin > 0) {
+        // Check if any series has delta mode - if so, don't start from zero
+        const hasDeltaMode = this.series.some(
+          (s) => s instanceof BarSeries && (s as BarSeries).deltaMode
+        );
+
+        // Start from zero if all values are positive, startFromZero is enabled, and no delta mode
+        if (this.startFromZero && yMin > 0 && !hasDeltaMode) {
           yMin = 0;
         }
 
         const yRange = yMax - yMin;
         const yBuffer =
           yRange * 0.15 || (yMax === 0 ? 1 : Math.abs(yMax) * 0.1);
-        this.yScale.domain = [yMin - yBuffer, yMax + yBuffer];
+        this.yScale.domain = [yMin, yMax + yBuffer];
       }
       return;
     }
@@ -333,10 +350,20 @@ export class Chart {
       return;
     }
 
+    // Check if any series has delta mode - if so, don't start from zero
+    const hasDeltaMode = this.series.some(
+      (s) => s instanceof BarSeries && (s as BarSeries).deltaMode
+    );
+
+    // Start from zero if all values are positive, startFromZero is enabled, and no delta mode
+    if (this.startFromZero && yMin > 0 && !hasDeltaMode) {
+      yMin = 0;
+    }
+
     const yRange = yMax - yMin;
     const yBuffer = yRange * 0.15 || (yMax === 0 ? 1 : Math.abs(yMax) * 0.1);
 
-    this.yScale.domain = [yMin - yBuffer, yMax + yBuffer];
+    this.yScale.domain = [yMin, yMax + yBuffer];
   }
 
   addSeries(seriesOrConfig: Series | SeriesConfig) {
@@ -590,13 +617,52 @@ export class Chart {
       return;
     }
 
-    // Collect data points from ALL series at this X position
+    // First, try to find ANY data point to get the X value
+    let targetX: number | string | null = null;
+    let isPieChart = false;
     const matchedData: { series: Series; point: Point }[] = [];
 
+    // Check for pie chart first (special handling)
     for (const series of this.series) {
-      const dataPoint = series.getDataAt({ x, y });
-      if (dataPoint) {
-        matchedData.push({ series, point: dataPoint });
+      if (series instanceof PieSeries) {
+        isPieChart = true;
+        const dataPoint = series.getDataAt({ x, y });
+        if (dataPoint) {
+          matchedData.push({ series, point: dataPoint });
+        }
+        break;
+      }
+    }
+
+    // For non-pie charts, collect data from ALL series at the same X
+    if (!isPieChart) {
+      // First pass: find the X value from any hit series
+      for (const series of this.series) {
+        const dataPoint = series.getDataAt({ x, y });
+        if (dataPoint) {
+          targetX = dataPoint.x;
+          break;
+        }
+      }
+
+      // If no direct hit, try to find closest X from first series
+      if (targetX === null && this.series.length > 0) {
+        const firstSeries = this.series[0];
+        const dataPoint = firstSeries.getDataAt({ x, y });
+        if (dataPoint) {
+          targetX = dataPoint.x;
+        }
+      }
+
+      // Second pass: collect ALL series data at this X
+      if (targetX !== null) {
+        for (const series of this.series) {
+          // Find data point with matching X value
+          const point = series.data.find((p) => p.x === targetX);
+          if (point) {
+            matchedData.push({ series, point });
+          }
+        }
       }
     }
 
@@ -670,7 +736,33 @@ export class Chart {
 
     this.tooltip.innerHTML = content;
     this.tooltip.style.display = "block";
-    this.tooltip.style.left = `${x + 10}px`;
-    this.tooltip.style.top = `${y + 10}px`;
+
+    // Position tooltip - prefer right side, but flip to left if it would overflow
+    const containerWidth = this.container.clientWidth;
+    const containerHeight = this.container.clientHeight;
+
+    // Measure tooltip size (must be visible to measure)
+    const tooltipRect = this.tooltip.getBoundingClientRect();
+    const tooltipWidth = tooltipRect.width || 150; // fallback estimate
+    const tooltipHeight = tooltipRect.height || 50;
+
+    // Horizontal positioning: prefer right, flip to left if overflow
+    let left = x + 15;
+    if (left + tooltipWidth > containerWidth - 10) {
+      left = x - tooltipWidth - 15;
+    }
+    // Ensure minimum left bound
+    if (left < 10) left = 10;
+
+    // Vertical positioning: prefer below, flip to above if overflow
+    let top = y + 10;
+    if (top + tooltipHeight > containerHeight - 10) {
+      top = y - tooltipHeight - 10;
+    }
+    // Ensure minimum top bound
+    if (top < 10) top = 10;
+
+    this.tooltip.style.left = `${left}px`;
+    this.tooltip.style.top = `${top}px`;
   }
 }

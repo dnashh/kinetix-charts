@@ -5,6 +5,27 @@ All notable changes to Kinetix Charts will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.0] - 2024-12-19
+
+### Added
+- **Render Animations** - Smooth entry animations for all chart types: lines draw progressively, bars grow from baseline, pie slices sweep in, and scatter points fade in
+- **Pie Chart Legend & Labels** - Built-in legend at bottom of pie charts with percentage labels on slices (>5%)
+- **Donut Chart Support** - Enhanced donut rendering with proper arc segments (set `innerRadius: 0.5`)
+- **Multi-Line Chart Demo** - New demo showcasing multiple overlapping line series
+- **Start From Zero Options** - New `startFromZero` (Y-axis, default: true) and `startXFromZero` (X-axis, default: false) config options
+- **X-Axis Number Detection** - Automatically detects numeric string values (e.g., "123") and treats them as numbers
+- **Minimum Chart Height** - CSS enforces `min-height: 200px` for chart containers
+
+### Fixed
+- **Tooltip Positioning** - Tooltips now stay within chart bounds, positioning on left/right without shrinking
+- **Multi-Series Tooltips** - Hover shows ALL series values at that X position (not just the hovered series)
+- **Duplicate Series Removed** - Chart constructor no longer creates default series, fixing ghost series issue
+- **Delta Mode Improved** - Delta mode now auto-disables `startFromZero` to zoom into data variations properly
+
+### Changed
+- Tooltip styling improved: darker background, box shadow, nowrap text
+- Vite dev server now serves demo at root (`/` instead of `/demo/index.html`)
+
 ## [0.2.0] - 2024-12-06
 
 ### Added

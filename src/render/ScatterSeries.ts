@@ -23,9 +23,16 @@ export class ScatterSeries extends Series {
     if (!this.xScale || !this.yScale || this.visibleData.length === 0) return;
 
     this.clear();
+
+    // Calculate how many points to draw based on animation progress
+    const pointsToDraw = Math.ceil(
+      this.visibleData.length * this.animationProgress
+    );
+    if (pointsToDraw === 0) return;
+
     this.ctx.fillStyle = this.color;
 
-    for (let i = 0; i < this.visibleData.length; i++) {
+    for (let i = 0; i < pointsToDraw; i++) {
       const p = this.visibleData[i];
       const x = this.xScale.toPixels(p.x);
       const y = this.yScale.toPixels(p.y);

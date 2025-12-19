@@ -67,7 +67,6 @@ export class BarSeries extends Series {
 
     for (const p of this.visibleData) {
       const x = this.xScale.toPixels(p.x);
-      const y = this.yScale.toPixels(p.y);
 
       // Support stacking: use p.y0 if available
       let bottomVal: number;
@@ -81,10 +80,21 @@ export class BarSeries extends Series {
         const yDomain = this.yScale.domain as [number, number];
         bottomVal = Math.max(0, yDomain[0]);
       }
-      const y0 = this.yScale.toPixels(bottomVal);
+
+      const y0Pixel = this.yScale.toPixels(bottomVal);
+      const yTargetPixel = this.yScale.toPixels(p.y);
+
+      // Apply animation: interpolate bar height from baseline
+      const animatedY =
+        y0Pixel + (yTargetPixel - y0Pixel) * this.animationProgress;
 
       // Draw rect - Center the bar on x
-      this.ctx.fillRect(x - actualBarWidth / 2, y, actualBarWidth, y0 - y);
+      this.ctx.fillRect(
+        x - actualBarWidth / 2,
+        animatedY,
+        actualBarWidth,
+        y0Pixel - animatedY
+      );
     }
   }
 

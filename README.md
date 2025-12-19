@@ -28,6 +28,7 @@
 | 🎨 **Themeable** | Light and dark themes with customizable colors |
 | 🏷️ **Auto Legend** | Smart legend that moves to avoid data occlusion |
 | 📊 **Multiple Types** | Line, Bar, Scatter, Pie/Donut, and Stacked charts |
+| ✨ **Animations** | Smooth render animations for all chart types |
 
 ## 📦 Installation
 
@@ -243,6 +244,8 @@ interface ChartConfig {
   xAxis?: AxisConfig;
   yAxis?: AxisConfig;
   series?: SeriesConfig[];
+  startFromZero?: boolean;  // Start Y-axis from 0 for positive values (default: true)
+  startXFromZero?: boolean; // Start X-axis from 0 for positive values (default: false)
 }
 ```
 
@@ -307,8 +310,25 @@ series.setData([{ x: number, y: number }, ...]);
 
 ```typescript
 const series = new PieSeries(container, zIndex);
-series.innerRadius = 0;  // 0 for pie, 0.5+ for donut
+series.innerRadius = 0;       // 0 for pie, 0.5+ for donut
+series.showLabels = true;     // Show percentage labels on slices
+series.showLegend = true;     // Show legend at bottom
 series.setData([{ label: string, value: number, color?: string }, ...]);
+```
+
+### Animation Control
+
+All series support render animations by default:
+
+```typescript
+// Disable animation for a series
+series.disableAnimation();
+
+// Enable animation with custom duration (ms)
+series.enableAnimation(800);
+
+// Manually trigger animation
+series.startAnimation();
 ```
 
 ---

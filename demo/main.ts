@@ -136,6 +136,59 @@ function createLineChart(): void {
   registerChart(chart);
 }
 
+function createMultiLineChart(): void {
+  const container = document.getElementById("chart-multiline");
+  if (!container) return;
+  container.innerHTML = "";
+
+  const chart = new Chart(container);
+  chart.series = [];
+
+  // Generate data with same X values for all series
+  const data1: { x: number; y: number }[] = [];
+  const data2: { x: number; y: number }[] = [];
+  const data3: { x: number; y: number }[] = [];
+
+  let v1 = 50,
+    v2 = 40,
+    v3 = 30;
+  for (let i = 0; i < 30; i++) {
+    v1 += (Math.random() - 0.45) * 8;
+    v2 += (Math.random() - 0.5) * 6;
+    v3 += (Math.random() - 0.55) * 5;
+    v1 = Math.max(10, Math.min(90, v1));
+    v2 = Math.max(10, Math.min(90, v2));
+    v3 = Math.max(10, Math.min(90, v3));
+    data1.push({ x: i, y: v1 });
+    data2.push({ x: i, y: v2 });
+    data3.push({ x: i, y: v3 });
+  }
+
+  const series1 = new LineSeries(container, 1);
+  series1.setScales(chart.xScale, chart.yScale);
+  series1.color = "#6366f1";
+  series1.name = "Revenue";
+  series1.setData(data1);
+
+  const series2 = new LineSeries(container, 2);
+  series2.setScales(chart.xScale, chart.yScale);
+  series2.color = "#22c55e";
+  series2.name = "Expenses";
+  series2.setData(data2);
+
+  const series3 = new LineSeries(container, 3);
+  series3.setScales(chart.xScale, chart.yScale);
+  series3.color = "#f59e0b";
+  series3.name = "Profit";
+  series3.setData(data3);
+
+  chart.addSeries(series1);
+  chart.addSeries(series2);
+  chart.addSeries(series3);
+  chart.update({ theme: currentTheme });
+  registerChart(chart);
+}
+
 function createBarChart(): void {
   const container = document.getElementById("chart-bar");
   if (!container) return;
@@ -185,6 +238,31 @@ function createPieChart(): void {
 
   const series = new PieSeries(container, 1);
   series.setData(generatePieData());
+
+  chart.addSeries(series);
+  chart.update({
+    theme: currentTheme,
+    xAxis: { visible: false },
+    yAxis: { visible: false },
+  });
+  registerChart(chart);
+}
+
+function createDonutChart(): void {
+  const container = document.getElementById("chart-donut");
+  if (!container) return;
+  container.innerHTML = "";
+
+  const chart = new Chart(container);
+  chart.series = [];
+
+  const series = new PieSeries(container, 1);
+  series.innerRadius = 0.5; // Make it a donut
+  series.setData([
+    { label: "Mobile", value: 45, color: "#6366f1" },
+    { label: "Desktop", value: 35, color: "#22c55e" },
+    { label: "Tablet", value: 20, color: "#f59e0b" },
+  ]);
 
   chart.addSeries(series);
   chart.update({
@@ -363,9 +441,11 @@ function initEventListeners(): void {
 function init(): void {
   // Create all demo charts
   createLineChart();
+  createMultiLineChart();
   createBarChart();
   createScatterChart();
   createPieChart();
+  createDonutChart();
   createStackedChart();
   createLargeDatasetChart();
 

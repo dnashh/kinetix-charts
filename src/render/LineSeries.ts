@@ -22,6 +22,13 @@ export class LineSeries extends Series {
     if (!this.xScale || !this.yScale || this.visibleData.length === 0) return;
 
     this.clear();
+
+    // Calculate how many points to draw based on animation progress
+    const pointsToDraw = Math.ceil(
+      this.visibleData.length * this.animationProgress
+    );
+    if (pointsToDraw === 0) return;
+
     this.ctx.strokeStyle = this.color;
     this.ctx.lineWidth = 2;
     this.ctx.beginPath();
@@ -32,26 +39,18 @@ export class LineSeries extends Series {
       this.yScale.toPixels(first.y)
     );
 
-    for (let i = 1; i < this.visibleData.length; i++) {
+    for (let i = 1; i < pointsToDraw; i++) {
       const p = this.visibleData[i];
       this.ctx.lineTo(this.xScale.toPixels(p.x), this.yScale.toPixels(p.y));
     }
 
     this.ctx.stroke();
 
-    // Draw points
-    this.ctx.fillStyle = this.color; // Use same color as line
-    // Optional: white fill with colored stroke for "premium" look?
-    // Let's do solid color for now as requested "visible clearly"
-
-    // Only draw points if density is low enough or always?
-    // If we have 2000 points, drawing 2000 circles is slow and messy.
-    // Let's draw if visibleData is < 100 or so? Or just draw them.
-    // User asked for "plotted points should be visible".
-    // Let's draw them.
+    // Draw points (only drawn ones)
+    this.ctx.fillStyle = this.color;
 
     const pointRadius = 3;
-    for (let i = 0; i < this.visibleData.length; i++) {
+    for (let i = 0; i < pointsToDraw; i++) {
       const p = this.visibleData[i];
       const x = this.xScale.toPixels(p.x);
       const y = this.yScale.toPixels(p.y);
@@ -63,7 +62,7 @@ export class LineSeries extends Series {
       this.ctx.arc(x, y, pointRadius, 0, Math.PI * 2);
       this.ctx.fill();
 
-      // White border for better contrast?
+      // White border for better contrast
       this.ctx.strokeStyle = "#ffffff";
       this.ctx.lineWidth = 1;
       this.ctx.stroke();

@@ -17,6 +17,10 @@ export interface ChartConfig {
   series?: SeriesConfig[];
   /** Theme of the chart */
   theme?: "light" | "dark";
+  /** Start Y axis from zero for positive values (default: true) */
+  startFromZero?: boolean;
+  /** Start X axis from zero for positive values (default: false) */
+  startXFromZero?: boolean;
 }
 
 export type SeriesConfig =
