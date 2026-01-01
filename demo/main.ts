@@ -278,7 +278,12 @@ function createStackedChart(): void {
   if (!container) return;
   container.innerHTML = "";
 
-  const chart = new Chart(container);
+  const chart = new Chart(container, {
+    xAxis: {
+      type: "categorical",
+      scrollable: true,
+    },
+  });
   chart.series = [];
 
   const rawData = generateStackedData();

@@ -2,7 +2,7 @@ import { LegendLayer } from "../render/LegendLayer";
 import { SceneGraph } from "./SceneGraph";
 import { LinearScale, CategoricalScale, Scale } from "../math/Scale";
 import { GridLayer } from "../render/GridLayer";
-import { AxisLayer } from "../render/AxisLayer";
+import { AxisLayer, AxisConfig } from "../render/AxisLayer";
 import { Series } from "../render/Series";
 import { LineSeries } from "../render/LineSeries";
 import { BarSeries } from "../render/BarSeries";
@@ -10,10 +10,11 @@ import { PieSeries } from "../render/PieSeries";
 import { ScatterSeries } from "../render/ScatterSeries";
 import { Point } from "../math/Transform";
 import { InteractionManager } from "./InteractionManager";
-import { ChartConfig, SeriesConfig } from "../types";
+import { ChartConfig, SeriesConfig, BaseSeriesConfig } from "../types";
 
 export class Chart {
   container: HTMLElement;
+  wrapper: HTMLElement;
   sceneGraph: SceneGraph;
   gridLayer: GridLayer;
   axisLayer: AxisLayer;
@@ -34,9 +35,15 @@ export class Chart {
   constructor(container: HTMLElement, config?: ChartConfig) {
     this.container = container;
     this.container.style.position = "relative"; // Ensure relative positioning for tooltip
-    this.container.style.overflow = "hidden";
+    this.container.style.overflow = "hidden"; // Default, will change if scrollable
 
-    this.sceneGraph = new SceneGraph(container);
+    // Create wrapper for scrolling content
+    this.wrapper = document.createElement("div");
+    this.wrapper.style.width = "100%";
+    this.wrapper.style.height = "100%";
+    this.container.appendChild(this.wrapper);
+
+    this.sceneGraph = new SceneGraph(this.wrapper);
 
     // Initialize Scales with Padding
     const width = container.clientWidth;
@@ -52,15 +59,15 @@ export class Chart {
       [height - this.padding.bottom, this.padding.top]
     );
 
-    // Initialize Layers
-    this.gridLayer = new GridLayer(container, 0);
+    // Initialize Layers (attached to wrapper)
+    this.gridLayer = new GridLayer(this.wrapper, 0);
     this.gridLayer.setScales(this.xScale, this.yScale);
     this.gridLayer.visible = false; // Hide grid by default
 
-    this.axisLayer = new AxisLayer(container, 50); // Higher z-index to render above series
+    this.axisLayer = new AxisLayer(this.wrapper, 50); // Higher z-index to render above series
     this.axisLayer.setScales(this.xScale, this.yScale);
 
-    this.legendLayer = new LegendLayer(container, 100);
+    this.legendLayer = new LegendLayer(this.wrapper, 100);
 
     this.sceneGraph.addLayer(this.gridLayer);
     this.sceneGraph.addLayer(this.axisLayer);
@@ -128,13 +135,16 @@ export class Chart {
     const stringXValues = new Set<string>();
     let hasStringX = false;
 
+    const isStrictCategorical = config.xAxis?.type === "categorical";
+
     // Helper to check points - also tries to detect if string X can be numeric
     const checkPoints = (points: Point[]) => {
       points.forEach((p) => {
         let xVal = p.x;
 
         // Try to detect numeric strings (e.g. "123", "45.6")
-        if (typeof xVal === "string") {
+        // Don't coerce if strictly categorical
+        if (typeof xVal === "string" && !isStrictCategorical) {
           const parsed = parseFloat(xVal);
           if (!isNaN(parsed) && isFinite(parsed)) {
             // This looks like a number, treat it as numeric
@@ -145,8 +155,15 @@ export class Chart {
         }
 
         if (typeof xVal === "number") {
-          if (xVal < xMin) xMin = xVal;
-          if (xVal > xMax) xMax = xVal;
+          if (isStrictCategorical) {
+            xVal = String(xVal);
+            (p as any).x = xVal;
+            hasStringX = true;
+            stringXValues.add(xVal);
+          } else {
+            if (xVal < xMin) xMin = xVal;
+            if (xVal > xMax) xMax = xVal;
+          }
         } else {
           hasStringX = true;
           stringXValues.add(String(p.x));
@@ -163,35 +180,9 @@ export class Chart {
     };
 
     // We need to access the data from config or series
-    // Since we just rebuilt series, let's use them
-    // We need to access the data from config or series
-    // Since we just rebuilt series, let's use them
     this.series.forEach((s) => {
       checkPoints(s.data);
     });
-
-    /*
-    const debugId = 'chart-debug-' + Math.random();
-    let debugEl = document.getElementById('chart-debug');
-    if (!debugEl) {
-        debugEl = document.createElement('div');
-        debugEl.id = 'chart-debug';
-        debugEl.style.position = 'fixed';
-        debugEl.style.bottom = '10px';
-        debugEl.style.right = '10px';
-        debugEl.style.background = 'rgba(0,0,0,0.8)';
-        debugEl.style.color = 'white';
-        debugEl.style.padding = '10px';
-        debugEl.style.zIndex = '9999';
-        document.body.appendChild(debugEl);
-    }
-    debugEl.innerHTML = `
-      hasStringX: ${hasStringX}<br>
-      xMin: ${xMin}<br>
-      Series: ${this.series.length}<br>
-      First Point X: ${this.series[0]?.data[0]?.x} (${typeof this.series[0]?.data[0]?.x})
-    `;
-    */
 
     // Handle Categorical Scale
     if (hasStringX) {
@@ -217,6 +208,39 @@ export class Chart {
       }
     }
 
+    // SCROLLING LOGIC
+    if (this.xScale instanceof CategoricalScale) {
+      const minPointWidth = 40;
+      const itemCount = this.xScale.domain.length;
+      const shouldScroll = config.xAxis?.scrollable || itemCount > 20;
+
+      if (shouldScroll) {
+        this.container.style.overflowX = "auto";
+        const requiredWidth = Math.max(
+          this.container.clientWidth,
+          itemCount * minPointWidth
+        );
+        this.wrapper.style.width = `${requiredWidth}px`;
+
+        // Update scale range to match new width
+        this.xScale.range = [
+          this.padding.left,
+          requiredWidth - this.padding.right,
+        ];
+      } else {
+        this.container.style.overflowX = "hidden";
+        this.wrapper.style.width = "100%";
+        // Reset range to container width
+        this.xScale.range = [
+          this.padding.left,
+          this.container.clientWidth - this.padding.right,
+        ];
+      }
+    } else {
+      this.container.style.overflowX = "hidden";
+      this.wrapper.style.width = "100%";
+    }
+
     if (xMin !== Infinity || hasStringX) {
       // Apply startXFromZero if enabled and all X values are positive
       if (this.startXFromZero && xMin > 0 && !hasStringX) {
@@ -238,8 +262,6 @@ export class Chart {
       const hasPieSeries = this.series.some((s) => s instanceof PieSeries);
 
       // Set initial domain to this extent (or config provided)
-      // If config provided specific axis range, use that, but keep maxExtent for clamping
-      // Skip for categorical scales - they have their own domain
       if (!(this.xScale instanceof CategoricalScale)) {
         if (
           config.xAxis &&
@@ -375,11 +397,11 @@ export class Chart {
       const seriesConfig = seriesOrConfig;
       switch (seriesConfig.type) {
         case "line":
-          series = new LineSeries(this.container, 1);
+          series = new LineSeries(this.wrapper, 1);
           (series as LineSeries).setData(seriesConfig.data);
           break;
         case "bar":
-          series = new BarSeries(this.container, 1);
+          series = new BarSeries(this.wrapper, 1);
           (series as BarSeries).setData(seriesConfig.data);
           if (seriesConfig.barWidth) {
             (series as BarSeries).barWidth = seriesConfig.barWidth;
@@ -387,16 +409,19 @@ export class Chart {
           if (seriesConfig.deltaMode) {
             (series as BarSeries).deltaMode = seriesConfig.deltaMode;
           }
+          if (seriesConfig.align) {
+            (series as BarSeries).align = seriesConfig.align;
+          }
           break;
         case "pie":
-          series = new PieSeries(this.container, 1);
+          series = new PieSeries(this.wrapper, 1);
           (series as PieSeries).setData(seriesConfig.data);
           if (seriesConfig.innerRadius) {
             (series as PieSeries).innerRadius = seriesConfig.innerRadius;
           }
           break;
         case "scatter":
-          series = new ScatterSeries(this.container, 1);
+          series = new ScatterSeries(this.wrapper, 1);
           (series as ScatterSeries).setData(seriesConfig.data);
           if (seriesConfig.radius) {
             (series as ScatterSeries).radius = seriesConfig.radius;
@@ -426,14 +451,6 @@ export class Chart {
     this.sceneGraph.addLayer(series);
 
     // Re-calculate extent and render
-    // We can just call update with current config + new series, but simpler to just re-calc extent here
-    // For now, let's just trigger a re-render, but ideally we should update bounds
-    // Let's call update with a reconstructed config to be safe and consistent
-    // But wait, update() clears series! We need to be careful.
-    // Actually, update() logic above rebuilds everything.
-    // If we want addSeries to be incremental, we should just update bounds and render.
-
-    // Let's update bounds incrementally
     let xMin = Infinity,
       xMax = -Infinity,
       yMin = Infinity,
@@ -442,11 +459,25 @@ export class Chart {
     const stringXValues = new Set<string>();
     let hasStringX = false;
 
+    // Check Config for strict categorical
+    const isStrictCategorical = this.axisLayer.config.type === "categorical";
+
     const checkPoints = (points: Point[]) => {
       points.forEach((p) => {
-        if (typeof p.x === "number") {
-          if (p.x < xMin) xMin = p.x;
-          if (p.x > xMax) xMax = p.x;
+        let xVal = p.x;
+
+        // Don't coerce if strictly categorical
+        if (typeof xVal === "string" && !isStrictCategorical) {
+          const parsed = parseFloat(xVal);
+          if (!isNaN(parsed) && isFinite(parsed)) {
+            xVal = parsed;
+            (p as any).x = parsed;
+          }
+        }
+
+        if (typeof xVal === "number") {
+          if (xVal < xMin) xMin = xVal;
+          if (xVal > xMax) xMax = xVal;
         } else {
           hasStringX = true;
           stringXValues.add(String(p.x));
@@ -483,6 +514,39 @@ export class Chart {
       this.series.forEach((s) => s.setScales(this.xScale, this.yScale));
       this.gridLayer.setScales(this.xScale, this.yScale);
       this.axisLayer.setScales(this.xScale, this.yScale);
+    }
+
+    // SCROLLING LOGIC
+    if (this.xScale instanceof CategoricalScale) {
+      const minPointWidth = 40;
+      const itemCount = this.xScale.domain.length;
+      const shouldScroll = this.axisLayer.config.scrollable || itemCount > 20;
+
+      if (shouldScroll) {
+        this.container.style.overflowX = "auto";
+        const requiredWidth = Math.max(
+          this.container.clientWidth,
+          itemCount * minPointWidth
+        );
+        this.wrapper.style.width = `${requiredWidth}px`;
+
+        // Update scale range to match new width
+        this.xScale.range = [
+          this.padding.left,
+          requiredWidth - this.padding.right,
+        ];
+      } else {
+        this.container.style.overflowX = "hidden";
+        this.wrapper.style.width = "100%";
+        // Reset range to container width
+        this.xScale.range = [
+          this.padding.left,
+          this.container.clientWidth - this.padding.right,
+        ];
+      }
+    } else {
+      this.container.style.overflowX = "hidden";
+      this.wrapper.style.width = "100%";
     }
 
     if (xMin !== Infinity || hasStringX) {
@@ -609,7 +673,7 @@ export class Chart {
     // Check if within chart area
     if (
       x < this.padding.left ||
-      x > this.container.clientWidth - this.padding.right ||
+      x > this.wrapper.clientWidth - this.padding.right ||
       y < this.padding.top ||
       y > this.container.clientHeight - this.padding.bottom
     ) {
@@ -764,5 +828,254 @@ export class Chart {
 
     this.tooltip.style.left = `${left}px`;
     this.tooltip.style.top = `${top}px`;
+  }
+
+  // API for Control Panel
+
+  setSeriesVisibility(index: number, visible: boolean) {
+    if (this.series[index]) {
+      this.series[index].visible = visible;
+      this.updateYScale();
+      this.sceneGraph.render();
+    }
+  }
+
+  toggleSeries(index: number) {
+    if (this.series[index]) {
+      this.setSeriesVisibility(index, !this.series[index].visible);
+    }
+  }
+
+  getSeriesInfo() {
+    return this.series.map((s, i) => ({
+      index: i,
+      name: s.name,
+      color: s.color,
+      visible: s.visible,
+      type: s.constructor.name.replace("Series", "").toLowerCase(),
+    }));
+  }
+
+  updateAxis(
+    xAxisConfig?: Partial<AxisConfig>,
+    _yAxisConfig?: Partial<AxisConfig>
+  ) {
+    if (xAxisConfig) {
+      const current = this.axisLayer.config;
+      this.axisLayer.config = { ...current, ...xAxisConfig };
+
+      if (xAxisConfig.visible !== undefined) {
+        this.axisLayer.config.visible = xAxisConfig.visible;
+      }
+    }
+    // Note: yAxis config usually shares same AxisLayer config for style,
+    // but if we had separate logic we would handle it.
+    // Current AxisLayer shares style for both.
+
+    this.sceneGraph.render();
+  }
+
+  setGridVisible(visible: boolean) {
+    this.gridLayer.visible = visible;
+    this.sceneGraph.render();
+  }
+
+  setTheme(theme: "light" | "dark") {
+    this.axisLayer.config.theme = theme;
+    this.legendLayer.setTheme(theme);
+    this.sceneGraph.render();
+  }
+
+  updateSeries(index: number, config: Partial<BaseSeriesConfig>) {
+    const series = this.series[index];
+    if (!series) return;
+
+    if (config.color) series.color = config.color;
+    if (config.name) series.name = config.name;
+    if (config.visible !== undefined) series.visible = config.visible;
+
+    this.sceneGraph.render();
+  }
+
+  /**
+   * Generates a data URL for the chart content.
+   * @param scale Scale factor for high resolution (default 1, or 2 for retina)
+   */
+  /**
+   * Generates a data URL for the chart content.
+   * @param options Options for export (scale, width, height, view)
+   */
+  getCanvasImage(
+    options: {
+      scale?: number;
+      width?: number;
+      height?: number;
+      view?: { x: number; y: number; width: number; height: number }; // Custom view window in data coordinates (if supported)
+      // Simplified: Just use scale/width/height for now, implementing true data-window pan/zoom requires modifying scales.
+      // Let's implement full state save/restore.
+    } = {}
+  ): string {
+    const scale = options.scale || 2;
+    const targetWidth = options.width || this.wrapper.clientWidth;
+    const targetHeight = options.height || this.wrapper.clientHeight;
+
+    // 1. SAVE STATE
+    const originalWidth = this.wrapper.style.width;
+    const originalHeight = this.wrapper.style.height;
+    const originalXDomain = [...this.xScale.domain];
+    const originalYDomain = [...this.yScale.domain];
+    const originalOverflow = this.container.style.overflow;
+
+    try {
+      // 2. APPLY TARGET DIMENSIONS
+      // We force write the wrapper style to target px.
+      // Note: using 'px' explicitly.
+      this.wrapper.style.width = `${targetWidth}px`;
+      this.wrapper.style.height = `${targetHeight}px`;
+      // Hide overflow during capture to prevent scrollbars affecting capture if we are resizing container
+      this.container.style.overflow = "hidden";
+
+      // 3. APPLY VIEW / ZOOM (Optional)
+      if (options.view) {
+        const isScrollableCategorical =
+          this.xScale instanceof CategoricalScale &&
+          this.container.style.overflowX === "auto";
+
+        if (!isScrollableCategorical && (options as any).window) {
+          const w = (options as any).window;
+          if (w.xMin !== undefined && w.xMax !== undefined) {
+            this.xScale.domain = [w.xMin, w.xMax];
+          }
+          if (w.yMin !== undefined && w.yMax !== undefined) {
+            this.yScale.domain = [w.yMin, w.yMax];
+          }
+        }
+      }
+
+      // 4. REFIT & RENDER
+      // We need to notify sceneGraph of new size
+      this.sceneGraph.resize(targetWidth, targetHeight);
+
+      // Trigger update to re-calculate layout/scales based on new size
+      // We call updateYScale() to ensure Y axis looks right for the new X range if strictly categorical logic didn't override it.
+      // BUT update() might reset xScale domain if we are not careful.
+      // In Chart.update(), it recalculates maxExtent and sets domain IF config.min/max are set or uses maxExtent.
+      // It DOES NOT preserve current interactive domain.
+      // So if we just changed domain above, `update()` might reset it.
+      // HOWEVER, `update()` is only called with `config`.
+      // We just need to re-render, not re-ingest config.
+      // `sceneGraph.render()` draws.
+      // `gridLayer` and `axisLayer` need `resize()` called on them?
+      // `SceneGraph.resize` calls `resize` on all layers.
+      // So we just need to ensure scales are correct (updated range).
+
+      this.xScale.range = [this.padding.left, targetWidth - this.padding.right];
+      this.yScale.range = [
+        targetHeight - this.padding.bottom,
+        this.padding.top,
+      ];
+
+      // Re-update Y scale in case X-range changed (for auto-scaling Y)
+      // But only if we didn't explicitly set Y scale in 'view'.
+      if (!(options as any).window?.yMin) {
+        this.updateYScale();
+      }
+
+      this.sceneGraph.render();
+
+      // 5. CAPTURE
+      // Create temp canvas
+      const tempCanvas = document.createElement("canvas");
+      tempCanvas.width = targetWidth * scale;
+      tempCanvas.height = targetHeight * scale;
+      const ctx = tempCanvas.getContext("2d");
+      if (!ctx) return "";
+
+      ctx.scale(scale, scale);
+
+      // Draw background
+      const isDark = this.axisLayer.config.theme === "dark";
+      ctx.fillStyle = isDark ? "#111827" : "#ffffff";
+      ctx.fillRect(0, 0, targetWidth, targetHeight);
+
+      // Draw visible layers
+      const layers = [...this.sceneGraph.layers].sort(
+        (a, b) => a.zIndex - b.zIndex
+      );
+
+      layers.forEach((layer) => {
+        if (layer.visible && layer.canvas) {
+          ctx.drawImage(layer.canvas, 0, 0, targetWidth, targetHeight);
+        }
+      });
+
+      return tempCanvas.toDataURL("image/png");
+    } finally {
+      // 6. RESTORE STATE
+      this.wrapper.style.width = originalWidth;
+      this.wrapper.style.height = originalHeight;
+      this.container.style.overflow = originalOverflow;
+
+      // Restore scales
+      this.xScale.domain = originalXDomain as [number, number] | string[];
+      this.yScale.domain = originalYDomain as [number, number];
+
+      // Restore dimensions (read from container for default behavior)
+      // If wrapper was auto-sized, this might be tricky.
+      // If strict categorical scrolling was on, `update` logic handles it.
+      // We should just call `update`?
+      // Or manually reset ranges.
+
+      // Best is to just call render if we assume container size didn't change (we modified wrapper style)
+      // BUT wrapper style is what matters.
+      // We restored wrapper style.
+      // Now we need to resize sceneGraph back.
+      const currentWidth = this.wrapper.clientWidth; // Should be back to original
+      const currentHeight = this.wrapper.clientHeight;
+
+      this.sceneGraph.resize(currentWidth, currentHeight);
+
+      // Reset ranges
+      if (this.xScale instanceof CategoricalScale) {
+        // Scrolling logic might need to re-run
+        // Let's manually trigger the scrolling resize logic by calling update with empty object?
+        // Or better: Just re-calculate ranges manually.
+        // If scrollable, range matches wrapper width.
+        this.xScale.range = [
+          this.padding.left,
+          currentWidth - this.padding.right,
+        ];
+      } else {
+        this.xScale.range = [
+          this.padding.left,
+          currentWidth - this.padding.right,
+        ];
+      }
+      this.yScale.range = [
+        currentHeight - this.padding.bottom,
+        this.padding.top,
+      ];
+
+      // Re-render
+      this.sceneGraph.render();
+    }
+  }
+
+  downloadImage(
+    filename: string = "chart.png",
+    options?: {
+      scale?: number;
+      width?: number;
+      height?: number;
+      window?: { xMin: number; xMax: number; yMin?: number; yMax?: number };
+    }
+  ) {
+    const dataUrl = this.getCanvasImage(options);
+    const link = document.createElement("a");
+    link.download = filename;
+    link.href = dataUrl;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   }
 }

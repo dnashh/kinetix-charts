@@ -7,6 +7,9 @@ export class BarSeries extends Series {
   /** Enable delta mode - show bar heights relative to minimum value for better visualization of small variations */
   deltaMode: boolean = false;
 
+  /** Alignment of the bar relative to the X value. Defaults to 'center'. */
+  align: "center" | "start" | "end" = "center";
+
   updateVisibleData() {
     // For bars, we usually don't downsample the same way as lines
     // because every bar is significant.
@@ -43,10 +46,13 @@ export class BarSeries extends Series {
     let slotWidth = 0;
     if (this.xScale.type === "categorical") {
       const [r0, r1] = this.xScale.range;
+      // Use absolute calculation for slot width to ensure consistent sizing
+      // range is width in pixels
       const width = Math.abs(r1 - r0);
       const count = this.xScale.domain.length;
       slotWidth = width / count;
     } else {
+      // For numeric, slotWidth is the width of minDiff in pixels
       const p0 = this.xScale.toPixels(0);
       const p1 = this.xScale.toPixels(minDiff);
       slotWidth = Math.abs(p1 - p0);
@@ -88,13 +94,16 @@ export class BarSeries extends Series {
       const animatedY =
         y0Pixel + (yTargetPixel - y0Pixel) * this.animationProgress;
 
-      // Draw rect - Center the bar on x
-      this.ctx.fillRect(
-        x - actualBarWidth / 2,
-        animatedY,
-        actualBarWidth,
-        y0Pixel - animatedY
-      );
+      let xPos = x - actualBarWidth / 2; // Default center
+
+      if (this.align === "start") {
+        xPos = x;
+      } else if (this.align === "end") {
+        xPos = x - actualBarWidth;
+      }
+
+      // Draw rect
+      this.ctx.fillRect(xPos, animatedY, actualBarWidth, y0Pixel - animatedY);
     }
   }
 

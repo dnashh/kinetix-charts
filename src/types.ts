@@ -48,6 +48,8 @@ export interface BarSeriesConfig extends BaseSeriesConfig {
   stacked?: boolean; // Not used directly by series, but by chart to pre-process
   /** Enable delta mode - show bar heights relative to minimum value for better visualization of small variations */
   deltaMode?: boolean;
+  /** Alignment of the bar relative to the X value. Defaults to 'center'. Use 'start' for histograms. */
+  align?: "center" | "start" | "end";
 }
 
 export interface PieSeriesConfig extends BaseSeriesConfig {

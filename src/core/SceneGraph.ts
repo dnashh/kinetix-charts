@@ -34,6 +34,14 @@ export class SceneGraph {
     this.height = rect.height;
   }
 
+  resize(width: number, height: number) {
+    this.width = width;
+    this.height = height;
+    for (const layer of this.layers) {
+      layer.resize(this.width, this.height);
+    }
+  }
+
   resizeLayers() {
     for (const layer of this.layers) {
       layer.resize(this.width, this.height);

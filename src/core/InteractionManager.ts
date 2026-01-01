@@ -41,7 +41,8 @@ export class InteractionManager {
     } else {
       // Hover logic for tooltips
       const rect = this.chart.container.getBoundingClientRect();
-      const x = e.clientX - rect.left;
+      const scrollLeft = this.chart.container.scrollLeft;
+      const x = e.clientX - rect.left + scrollLeft;
       const y = e.clientY - rect.top;
       this.chart.handleHover(x, y);
     }

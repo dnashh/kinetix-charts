@@ -363,6 +363,86 @@ chart.update({
 });
 ```
 
+### Strict Categorical Mode
+If your categorical data looks like numbers (e.g. "2020", "2021") and you want to prevent them from being parsed as numeric values, explicitly set the axis type to 'categorical'.
+
+```typescript
+const chart = new Chart(container, {
+  xAxis: {
+    type: 'categorical', 
+    visible: true
+  },
+  // ...
+});
+```
+
+### Scrolling for Large Datasets
+For charts with a large number of categorical data points, you can enable scrolling.
+
+```typescript
+const chart = new Chart(container, {
+  xAxis: {
+    type: 'categorical',
+    scrollable: true // Enables horizontal scrolling
+  },
+  // ...
+});
+```
+
+### Histograms (Bar Alignment)
+To render histograms using a numeric axis, align the bars to the start of the data point.
+
+```typescript
+{
+  type: 'bar',
+  data: [ ... ],
+  barWidth: 1.0, // Full width
+  align: 'start', // Align bar to start of X value
+  color: '#3b82f6'
+}
+```
+
+### Control Panel API
+The `Chart` instance exposes methods to control series visibility programmatically.
+
+```typescript
+// Toggle visibility of series at index 0
+chart.toggleSeries(0);
+
+// Set visibility explicitly
+chart.setSeriesVisibility(0, false); // Hide
+chart.setSeriesVisibility(0, true);  // Show
+
+// Update Axis Configuration
+chart.updateAxis({ visible: false, type: 'numeric' });
+
+// Toggle Grid
+chart.setGridVisible(true);
+
+// Switch Theme (Light/Dark)
+chart.setTheme('dark');
+
+// Update Series Properties
+chart.updateSeries(0, { color: '#ef4444', name: 'New Name' });
+
+// Get information about all series
+const info = chart.getSeriesInfo();
+// Returns: [{ index: 0, name: 'Sales', color: '#ff0000', visible: true, type: 'line' }, ...]
+
+// Export Chart as Image with options
+chart.downloadImage('my-chart.png', { 
+  scale: 2,               // 2x resolution
+  width: 1200,            // Custom width
+  height: 600,            // Custom height
+  // window: { xMin: 0, xMax: 50 } // Optional zoom/pan window (numeric/index domain)
+});
+
+// Get Chart Image as Data URL
+const dataUrl = chart.getCanvasImage({ scale: 2 });
+```
+
+## Advanced Features
+
 ### Delta Mode (Bar Charts)
 
 When your data has minor variations between values (e.g., `[1000, 1002, 1001, 1003]`), the differences are hard to see because bars all look nearly the same height. **Delta Mode** solves this by showing bar heights relative to the minimum value.

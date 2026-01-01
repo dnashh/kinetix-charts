@@ -14,6 +14,7 @@ export interface AxisConfig {
   visible?: boolean;
   theme?: "light" | "dark";
   type?: "numeric" | "datetime" | "categorical";
+  scrollable?: boolean;
 }
 
 export class AxisLayer extends Layer {

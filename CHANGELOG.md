@@ -5,6 +5,19 @@ All notable changes to Kinetix Charts will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.0] - 2026-01-01
+
+### Added
+- **Control Panel API** - Comprehensive API to control charts: `updateAxis`, `setGridVisible`, `setTheme`, `updateSeries`, `setSeriesVisibility`, `toggleSeries`, `getSeriesInfo`.
+- **Image Export** - Built-in `downloadImage(name, options)` and `getCanvasImage(options)` to export charts as PNG. Supports custom `width`, `height`, and zoom/pan `window`.
+- **Scrollable Charts** - Horizontal scrolling for large categorical datasets (`xAxis.scrollable: true`).
+- **Strict Categorical Mode** - Explicit `xAxis.type: 'categorical'` properly treats all data as strings, preventing numeric interpolation errors.
+- **Histogram Support** - New `align: 'start'` option for Bar Series to render histogram-style bars.
+
+### Fixed
+- **Categorical Axis Rendering** - Fixed issue where categorical axis ticks could misalign or interpolate as numbers. Now strictly enforces integer-index placement for categories.
+- **Zoom on Scrollable Charts** - Disabled zoom interactions on natively scrollable categorical charts to prevent conflicts during image export.
+
 ## [0.3.0] - 2024-12-19
 
 ### Added
